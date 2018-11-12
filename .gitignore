@@ -1,0 +1,9 @@
+/MDK-ARM/PowerModule/
+*.uvguix.*
+#*.o
+#*.d
+#*.axf
+#*.htm
+#*.map
+#*.crf
+#*.lst
