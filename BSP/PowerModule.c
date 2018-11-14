@@ -1,5 +1,6 @@
 #include "PowerModule.h"
-uint16_t AdcAverage[5];
+
+uint16_t AdcAverage[4];
 uint16_t TargetOutputVoltage=0;
 uint16_t CurInputVoltage=0;
 uint16_t CurOutputVoltage=0;
@@ -12,7 +13,7 @@ char OutputOverCurrentFlag=0;
 char ShortCircuitFlag=0;
 char OverTemperatureFlag=0;
 char PowerStatusFlag=0;
-
+uint32_t DacOutputValue=0;
 
 //OUTPUT
 void FaultLightControl(GPIO_PinState lightState)
@@ -61,7 +62,27 @@ char  GetPowerStatus(void)
 #define COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_VOLTAGE_SAMPLE(ADC_DATA)                        \
   ((uint16_t)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*46.8f/1.8f*10.0f))
 
-
+void ADC_ExInit(ADC_HandleTypeDef* hadc)
+{
+  /* Run the ADC calibration */  
+  if (HAL_ADCEx_Calibration_Start(hadc) != HAL_OK)
+  {
+    /* Calibration Error */
+    Error_Handler();
+  }
+  
+  /*## Start ADC conversions #################################################*/
+  
+  /* Start ADC conversion on regular group with transfer by DMA */
+  if (HAL_ADC_Start_DMA(hadc,
+                        (uint32_t *)AdcAverage,
+                        sizeof(AdcAverage)
+                       ) != HAL_OK)
+  {
+    /* Start Error */
+    Error_Handler();
+  }
+}
 uint16_t GetOutputCurrent(void)
 {
   return COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_CURRENT(AdcAverage[0]);
@@ -94,11 +115,29 @@ uint16_t OutputVoltageToDigital12Bits(uint16_t targetVoltage)
 //CAN
 char ReceivedCanCommendFlag=0;
 
-void CAN_ExtendedInit(CAN_HandleTypeDef* hcan)
+void CAN_ExInit(CAN_HandleTypeDef* hcan)
 {
   static CanTxMsgTypeDef        TxMessage;
   static CanRxMsgTypeDef        RxMessage;
-  /*##-1- Configure Transmission process #####################################*/
+  //CAN_FilterConfTypeDef  sFilterConfig;
+  /*## Configure the CAN Filter ###########################################*/
+//  sFilterConfig.FilterNumber = 0;
+//  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+//  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+//  sFilterConfig.FilterIdHigh = 0x0000;
+//  sFilterConfig.FilterIdLow = 0x0000;
+//  sFilterConfig.FilterMaskIdHigh = 0x0000;
+//  sFilterConfig.FilterMaskIdLow = 0x0000;
+//  sFilterConfig.FilterFIFOAssignment = 0;
+//  sFilterConfig.FilterActivation = ENABLE;
+//  sFilterConfig.BankNumber = 14;
+
+//  if (HAL_CAN_ConfigFilter(hcan, &sFilterConfig) != HAL_OK)
+//  {
+//    /* Filter configuration Error */
+//    Error_Handler();
+//  }
+  /*## Configure Transmission process #####################################*/
   hcan->pTxMsg = &TxMessage;
   hcan->pRxMsg = &RxMessage;
   
@@ -108,7 +147,7 @@ void CAN_ExtendedInit(CAN_HandleTypeDef* hcan)
   hcan->pTxMsg->IDE = CAN_ID_STD;
   hcan->pTxMsg->DLC = 8;
   
-  /*##-2- Start the Reception process and enable reception interrupt #########*/
+  /*## Start the Reception process and enable reception interrupt #########*/
   if (HAL_CAN_Receive_IT(hcan, CAN_FIFO0) != HAL_OK)
   {
     /* Reception Error */
@@ -131,6 +170,7 @@ void GetPowerModuleStatus(void)
   CurOutputCurrent=GetOutputCurrent();
   CurModuleTemperature=GetTemperature();
   PowerStatusFlag=GetPowerStatus();
+  DacOutputValue=OutputVoltageToDigital12Bits((hcan1.pRxMsg->Data[2]<<8)|hcan1.pRxMsg->Data[1]);
   if(CurInputVoltage>=IN_OVER_V_PROTECT_MIN)
   {
     InputOverVoltageFlag=true;

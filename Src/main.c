@@ -99,13 +99,27 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_ADC1_Init();
+  ADC_ExInit(&hadc1);
   MX_CAN1_Init();
-  CAN_ExtendedInit(&hcan1);
+  CAN_ExInit(&hcan1);
   MX_DAC_Init();
 
   /* Infinite loop */
   while (1)
   {
+    /* Start ADC conversion */
+    /* Since sequencer is enabled in discontinuous mode, this will perform    */
+    /* the conversion of the next rank in sequencer.                          */
+    /* Note: For this example, conversion is triggered by software start,     */
+    /*       therefore "HAL_ADC_Start()" must be called for each conversion.  */
+    /*       Since DMA transfer has been initiated previously by function     */
+    /*       "HAL_ADC_Start_DMA()", this function will keep DMA transfer      */
+    /*       active.                                                          */
+    HAL_ADC_Start(&hadc1);
+      
+    /* Wait for conversion completion before conditional check hereafter */
+    HAL_ADC_PollForConversion(&hadc1, 1);
+    
     GetPowerModuleStatus();
     if(1==InputOverVoltageFlag)
     {
@@ -136,11 +150,30 @@ int main(void)
     
     if(1==OutputOverCurrentFlag)
     {
-      //DAC降压输出
+      //DAC降压输出由硬件实现，软件只置标志位
     }
     else
     {
       //DAC正常输出
+      if(1==(hcan1.pRxMsg->Data[0]&0x01))   //？？？？？需不需要添加故障标志位判断，有故障时不输出
+      {
+        /*##-2- Enable DAC selected channel and associated DMA #############################*/
+        if (HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t *)&DacOutputValue, 1, DAC_ALIGN_12B_R) != HAL_OK)
+        {
+          /* Start DMA Error */
+          Error_Handler();
+        }
+      }
+      else
+      {
+        uint32_t maxDAC=4095;
+        if (HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t *)&maxDAC, 1, DAC_ALIGN_12B_R) != HAL_OK)
+        {
+          /* Start DMA Error */
+          Error_Handler();
+        }
+      }
+        
     }
     
     if(1==OverTemperatureFlag)
@@ -196,6 +229,14 @@ int main(void)
       Error_Handler();
     }
     HAL_Delay(10);
+    //test can
+    //TargetOutputVoltage=(hcan1.pRxMsg->Data[2]<<8)|hcan1.pRxMsg->Data[1];
+      /*##-- Start the Transmission process ###############################*/
+    if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+    {
+      /* Transmition Error */
+      Error_Handler();
+    }
   }
 
 }

@@ -71,7 +71,6 @@ void MX_DAC_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
-
 }
 
 void HAL_DAC_MspInit(DAC_HandleTypeDef* dacHandle)
