@@ -54,7 +54,7 @@
 enum{false,true};
 
 extern char ReceivedCanCommendFlag;
-extern uint16_t AdcAverage[4];
+extern uint32_t AdcAverage[4];
 extern uint16_t TargetOutputVoltage;
 extern uint16_t CurInputVoltage;
 extern uint16_t CurOutputVoltage;

@@ -103,7 +103,7 @@ int main(void)
   MX_CAN1_Init();
   CAN_ExInit(&hcan1);
   MX_DAC_Init();
-
+	
   /* Infinite loop */
   while (1)
   {
@@ -116,7 +116,16 @@ int main(void)
     /*       "HAL_ADC_Start_DMA()", this function will keep DMA transfer      */
     /*       active.                                                          */
     HAL_ADC_Start(&hadc1);
-      
+    
+		/* Start ADC conversion on regular group with transfer by DMA */
+		if (HAL_ADC_Start_DMA(&hadc1,
+													(uint32_t *)AdcAverage,
+													4
+												 ) != HAL_OK)
+		{
+			/* Start Error */
+			Error_Handler();
+		}
     /* Wait for conversion completion before conditional check hereafter */
     HAL_ADC_PollForConversion(&hadc1, 1);
     
@@ -141,11 +150,11 @@ int main(void)
     
     if(1==OutputOverVoltageFlag)
     {
-      PowerControl(0);
+      PowerControl(1);
     }
     else
     {
-      PowerControl(1);
+      PowerControl(0);
     }
     
     if(1==OutputOverCurrentFlag)
@@ -157,34 +166,33 @@ int main(void)
       //DAC正常输出
       if(1==(hcan1.pRxMsg->Data[0]&0x01))   //？？？？？需不需要添加故障标志位判断，有故障时不输出
       {
-        /*##-2- Enable DAC selected channel and associated DMA #############################*/
-        if (HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t *)&DacOutputValue, 1, DAC_ALIGN_12B_R) != HAL_OK)
-        {
-          /* Start DMA Error */
-          Error_Handler();
-        }
+        /*##-3- Set DAC Channel1 DHR register ######################################*/
+				if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, DacOutputValue) != HAL_OK)
+				{
+					/* Setting value Error */
+					Error_Handler();
+				}
+				 /*##-4- Enable DAC Channel1 ################################################*/
+				if (HAL_DAC_Start(&hdac, DAC_CHANNEL_1) != HAL_OK)
+				{
+					/* Start Error */
+					Error_Handler();
+				}
       }
       else
       {
-        uint32_t maxDAC=4095;
-        if (HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t *)&maxDAC, 1, DAC_ALIGN_12B_R) != HAL_OK)
-        {
-          /* Start DMA Error */
-          Error_Handler();
-        }
       }
         
     }
-    
     if(1==OverTemperatureFlag)
     {
       FaultLightControl(1);
-      PowerControl(0);
+      PowerControl(1);
     }
     else
     {
       FaultLightControl(0);
-      PowerControl(1);
+      PowerControl(0);
     }
     /* Set the data to be tranmitted */
     hcan1.pTxMsg->Data[0]=CurOutputVoltage&0xff;//输出电压
@@ -208,6 +216,12 @@ int main(void)
         /* Transmition Error */
         Error_Handler();
       }
+			  /*## Start the Reception process and enable reception interrupt #########*/
+			if (HAL_CAN_Receive_IT(&hcan1, CAN_FIFO0) != HAL_OK)
+			{
+				/* Reception Error */
+				Error_Handler();
+			}
     }
     //判断故障信息
     if((1==InputOverVoltageFlag)|(1==InputUnderVoltageFlag)|(1==OutputOverVoltageFlag)
@@ -220,8 +234,8 @@ int main(void)
         Error_Handler();
       }
     }
-    /* Set the data to be tranmitted */
-    
+//    /* Set the data to be tranmitted */
+//    
     /*##-- Start the Transmission process ###############################*/
     if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
     {
@@ -229,14 +243,6 @@ int main(void)
       Error_Handler();
     }
     HAL_Delay(10);
-    //test can
-    //TargetOutputVoltage=(hcan1.pRxMsg->Data[2]<<8)|hcan1.pRxMsg->Data[1];
-      /*##-- Start the Transmission process ###############################*/
-    if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
-    {
-      /* Transmition Error */
-      Error_Handler();
-    }
   }
 
 }
@@ -247,65 +253,105 @@ int main(void)
   */
 void SystemClock_Config(void)
 {
+  RCC_ClkInitTypeDef clkinitstruct = {0};
+  RCC_OscInitTypeDef oscinitstruct = {0};
+  
+  /* Configure PLLs ------------------------------------------------------*/
+  /* PLL2 configuration: PLL2CLK = (HSE / HSEPrediv2Value) * PLL2MUL = (25 / 5) * 8 = 40 MHz */
+  /* PREDIV1 configuration: PREDIV1CLK = PLL2CLK / HSEPredivValue = 40 / 5 = 8 MHz */
+  /* PLL configuration: PLLCLK = PREDIV1CLK * PLLMUL = 8 * 9 = 72 MHz */ 
 
-  RCC_OscInitTypeDef RCC_OscInitStruct;
-  RCC_ClkInitTypeDef RCC_ClkInitStruct;
-  RCC_PeriphCLKInitTypeDef PeriphClkInit;
-
-    /**Initializes the CPU, AHB and APB busses clocks 
-    */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
-  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV5;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.Prediv1Source = RCC_PREDIV1_SOURCE_PLL2;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
-  RCC_OscInitStruct.PLL2.PLL2State = RCC_PLL2_ON;
-  RCC_OscInitStruct.PLL2.PLL2MUL = RCC_PLL2_MUL8;
-  RCC_OscInitStruct.PLL2.HSEPrediv2Value = RCC_HSE_PREDIV2_DIV5;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  /* Enable HSE Oscillator and activate PLL with HSE as source */
+  oscinitstruct.OscillatorType  = RCC_OSCILLATORTYPE_HSE;
+  oscinitstruct.HSEState        = RCC_HSE_ON;
+  oscinitstruct.HSEPredivValue  = RCC_HSE_PREDIV_DIV5;
+  oscinitstruct.Prediv1Source   = RCC_PREDIV1_SOURCE_PLL2;
+  oscinitstruct.PLL.PLLState    = RCC_PLL_ON;
+  oscinitstruct.PLL.PLLSource   = RCC_PLLSOURCE_HSE;
+  oscinitstruct.PLL.PLLMUL      = RCC_PLL_MUL9;
+  oscinitstruct.PLL2.PLL2State  = RCC_PLL2_ON;
+  oscinitstruct.PLL2.PLL2MUL    = RCC_PLL2_MUL8;
+  oscinitstruct.PLL2.HSEPrediv2Value = RCC_HSE_PREDIV2_DIV5;
+  if (HAL_RCC_OscConfig(&oscinitstruct)!= HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    /* Initialization Error */
+    while(1);
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
-    */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  /* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2 
+     clocks dividers */
+  clkinitstruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
+  clkinitstruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  clkinitstruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  clkinitstruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  clkinitstruct.APB1CLKDivider = RCC_HCLK_DIV2;  
+  if (HAL_RCC_ClockConfig(&clkinitstruct, FLASH_LATENCY_2)!= HAL_OK)
   {
-    _Error_Handler(__FILE__, __LINE__);
+    /* Initialization Error */
+    while(1); 
   }
-
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
-  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
-
-    /**Configure the Systick interrupt time 
-    */
-  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
-
-    /**Configure the Systick 
-    */
-  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
-
-    /**Configure the Systick interrupt time 
-    */
-  __HAL_RCC_PLLI2S_ENABLE();
-
-  /* SysTick_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
+//void SystemClock_Config(void)
+//{
+
+//  RCC_OscInitTypeDef RCC_OscInitStruct;
+//  RCC_ClkInitTypeDef RCC_ClkInitStruct;
+//  RCC_PeriphCLKInitTypeDef PeriphClkInit;
+
+//    /**Initializes the CPU, AHB and APB busses clocks 
+//    */
+//  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+//  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+//  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV5;
+//  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+//  RCC_OscInitStruct.Prediv1Source = RCC_PREDIV1_SOURCE_PLL2;
+//  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+//  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+//  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+//  RCC_OscInitStruct.PLL2.PLL2State = RCC_PLL2_ON;
+//  RCC_OscInitStruct.PLL2.PLL2MUL = RCC_PLL2_MUL8;
+//  RCC_OscInitStruct.PLL2.HSEPrediv2Value = RCC_HSE_PREDIV2_DIV5;
+//  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+//  {
+//    _Error_Handler(__FILE__, __LINE__);
+//  }
+
+//    /**Initializes the CPU, AHB and APB busses clocks 
+//    */
+//  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+//                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+//  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+//  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+//  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+//  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+//  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+//  {
+//    _Error_Handler(__FILE__, __LINE__);
+//  }
+
+//  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+//  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
+//  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+//  {
+//    _Error_Handler(__FILE__, __LINE__);
+//  }
+
+//    /**Configure the Systick interrupt time 
+//    */
+//  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
+
+//    /**Configure the Systick 
+//    */
+//  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
+
+//    /**Configure the Systick interrupt time 
+//    */
+//  __HAL_RCC_PLLI2S_ENABLE();
+
+//  /* SysTick_IRQn interrupt configuration */
+//  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+//}
 
 /* USER CODE BEGIN 4 */
 

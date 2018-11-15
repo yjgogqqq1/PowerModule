@@ -65,11 +65,24 @@ void MX_DAC_Init(void)
 
     /**DAC channel OUT1 config 
     */
-  sConfig.DAC_Trigger = DAC_TRIGGER_SOFTWARE;
+  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;//DAC_TRIGGER_SOFTWARE;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
+  }
+	
+	/*##-3- Set DAC Channel1 DHR register ######################################*/
+  if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 592) != HAL_OK)
+  {
+    /* Setting value Error */
+    Error_Handler();
+  }
+	 /*##-4- Enable DAC Channel1 ################################################*/
+  if (HAL_DAC_Start(&hdac, DAC_CHANNEL_1) != HAL_OK)
+  {
+    /* Start Error */
+    Error_Handler();
   }
 }
 
@@ -90,24 +103,25 @@ void HAL_DAC_MspInit(DAC_HandleTypeDef* dacHandle)
     */
     GPIO_InitStruct.Pin = OUTPUT_VOLTAGE_ADJUST_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+		GPIO_InitStruct.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(OUTPUT_VOLTAGE_ADJUST_GPIO_Port, &GPIO_InitStruct);
 
-    /* DAC DMA Init */
-    /* DAC_CH1 Init */
-    hdma_dac_ch1.Instance = DMA2_Channel3;
-    hdma_dac_ch1.Init.Direction = DMA_MEMORY_TO_PERIPH;
-    hdma_dac_ch1.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_dac_ch1.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_dac_ch1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_dac_ch1.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-    hdma_dac_ch1.Init.Mode = DMA_CIRCULAR;
-    hdma_dac_ch1.Init.Priority = DMA_PRIORITY_LOW;
-    if (HAL_DMA_Init(&hdma_dac_ch1) != HAL_OK)
-    {
-      _Error_Handler(__FILE__, __LINE__);
-    }
+//    /* DAC DMA Init */
+//    /* DAC_CH1 Init */
+//    hdma_dac_ch1.Instance = DMA2_Channel3;
+//    hdma_dac_ch1.Init.Direction = DMA_MEMORY_TO_PERIPH;
+//    hdma_dac_ch1.Init.PeriphInc = DMA_PINC_DISABLE;
+//    hdma_dac_ch1.Init.MemInc = DMA_MINC_ENABLE;
+//    hdma_dac_ch1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+//    hdma_dac_ch1.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+//    hdma_dac_ch1.Init.Mode = DMA_CIRCULAR;
+//    hdma_dac_ch1.Init.Priority = DMA_PRIORITY_LOW;
+//    if (HAL_DMA_Init(&hdma_dac_ch1) != HAL_OK)
+//    {
+//      _Error_Handler(__FILE__, __LINE__);
+//    }
 
-    __HAL_LINKDMA(dacHandle,DMA_Handle1,hdma_dac_ch1);
+//    __HAL_LINKDMA(dacHandle,DMA_Handle1,hdma_dac_ch1);
 
   /* USER CODE BEGIN DAC_MspInit 1 */
 

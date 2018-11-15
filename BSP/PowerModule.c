@@ -1,6 +1,6 @@
 #include "PowerModule.h"
 
-uint16_t AdcAverage[4];
+uint32_t AdcAverage[4];
 uint16_t TargetOutputVoltage=0;
 uint16_t CurInputVoltage=0;
 uint16_t CurOutputVoltage=0;
@@ -32,7 +32,7 @@ void PowerControl(GPIO_PinState PowerState)
   }
   else
   {
-    HAL_GPIO_WritePin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin, GPIO_PIN_SET);
   }
   
 }
@@ -76,7 +76,7 @@ void ADC_ExInit(ADC_HandleTypeDef* hadc)
   /* Start ADC conversion on regular group with transfer by DMA */
   if (HAL_ADC_Start_DMA(hadc,
                         (uint32_t *)AdcAverage,
-                        sizeof(AdcAverage)
+                        4
                        ) != HAL_OK)
   {
     /* Start Error */
@@ -119,24 +119,24 @@ void CAN_ExInit(CAN_HandleTypeDef* hcan)
 {
   static CanTxMsgTypeDef        TxMessage;
   static CanRxMsgTypeDef        RxMessage;
-  //CAN_FilterConfTypeDef  sFilterConfig;
+  CAN_FilterConfTypeDef  sFilterConfig;
   /*## Configure the CAN Filter ###########################################*/
-//  sFilterConfig.FilterNumber = 0;
-//  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-//  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-//  sFilterConfig.FilterIdHigh = 0x0000;
-//  sFilterConfig.FilterIdLow = 0x0000;
-//  sFilterConfig.FilterMaskIdHigh = 0x0000;
-//  sFilterConfig.FilterMaskIdLow = 0x0000;
-//  sFilterConfig.FilterFIFOAssignment = 0;
-//  sFilterConfig.FilterActivation = ENABLE;
-//  sFilterConfig.BankNumber = 14;
+  sFilterConfig.FilterNumber = 0;
+  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  sFilterConfig.FilterIdHigh = 0x0000;
+  sFilterConfig.FilterIdLow = 0x0000;
+  sFilterConfig.FilterMaskIdHigh = 0x0000;
+  sFilterConfig.FilterMaskIdLow = 0x0000;
+  sFilterConfig.FilterFIFOAssignment = 0;
+  sFilterConfig.FilterActivation = ENABLE;
+  sFilterConfig.BankNumber = 14;
 
-//  if (HAL_CAN_ConfigFilter(hcan, &sFilterConfig) != HAL_OK)
-//  {
-//    /* Filter configuration Error */
-//    Error_Handler();
-//  }
+  if (HAL_CAN_ConfigFilter(hcan, &sFilterConfig) != HAL_OK)
+  {
+    /* Filter configuration Error */
+    Error_Handler();
+  }
   /*## Configure Transmission process #####################################*/
   hcan->pTxMsg = &TxMessage;
   hcan->pRxMsg = &RxMessage;
