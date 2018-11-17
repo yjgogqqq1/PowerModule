@@ -1,6 +1,6 @@
 #include "PowerModule.h"
 
-uint32_t AdcAverage[4];
+__IO uint16_t AdcAverage[4];
 uint16_t TargetOutputVoltage=0;
 uint16_t CurInputVoltage=0;
 uint16_t CurOutputVoltage=0;
@@ -26,7 +26,8 @@ void WorkLightControl(GPIO_PinState lightState)
 }
 void PowerControl(GPIO_PinState PowerState)
 {
-  if(1==(hcan1.pRxMsg->Data[0]&0x01))
+  if((1==(hcan1.pRxMsg->Data[0]&0x01))&&(1!=InputOverVoltageFlag)
+		&&(1!=InputUnderVoltageFlag)&&(1!=OutputOverVoltageFlag))
   {
     HAL_GPIO_WritePin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin, PowerState);
   }

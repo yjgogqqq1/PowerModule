@@ -52,9 +52,9 @@
 #define OVER_TEMPERATURE_VALUE    (900)
 #define OVER_TEMPERATURE_CANCEL_VALUE   (750)
 enum{false,true};
-
+enum{POWER_ON,POWER_OFF};
 extern char ReceivedCanCommendFlag;
-extern uint32_t AdcAverage[4];
+extern __IO uint16_t AdcAverage[4];
 extern uint16_t TargetOutputVoltage;
 extern uint16_t CurInputVoltage;
 extern uint16_t CurOutputVoltage;

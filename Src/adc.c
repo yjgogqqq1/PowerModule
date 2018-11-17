@@ -62,7 +62,7 @@ void MX_ADC1_Init(void)
   hadc1.Init.ContinuousConvMode =DISABLE;
   hadc1.Init.DiscontinuousConvMode = ENABLE;
   hadc1.Init.NbrOfDiscConversion = 1;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;//ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 4;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -74,7 +74,7 @@ void MX_ADC1_Init(void)
     */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_71CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -82,6 +82,7 @@ void MX_ADC1_Init(void)
 
     /**Configure Regular Channel 
     */
+  sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -90,6 +91,7 @@ void MX_ADC1_Init(void)
 
     /**Configure Regular Channel 
     */
+  sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_3;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -98,6 +100,7 @@ void MX_ADC1_Init(void)
 
     /**Configure Regular Channel 
     */
+  sConfig.Channel = ADC_CHANNEL_3;
   sConfig.Rank = ADC_REGULAR_RANK_4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
@@ -110,14 +113,23 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
 {
 
   GPIO_InitTypeDef GPIO_InitStruct;
+	RCC_PeriphCLKInitTypeDef  PeriphClkInit;
   if(adcHandle->Instance==ADC1)
   {
   /* USER CODE BEGIN ADC1_MspInit 0 */
 
   /* USER CODE END ADC1_MspInit 0 */
     /* ADC1 clock enable */
-    __HAL_RCC_ADC1_CLK_ENABLE();
-  
+    
+		__HAL_RCC_GPIOA_CLK_ENABLE();
+		__HAL_RCC_ADC1_CLK_ENABLE();
+		
+		PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+		PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
+		HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit);
+		
+		__HAL_RCC_DMA1_CLK_ENABLE();
+    /* ADC1 DMA Init */
     /**ADC1 GPIO Configuration    
     PA0-WKUP     ------> ADC1_IN0
     PA1     ------> ADC1_IN1
@@ -126,9 +138,10 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     */
     GPIO_InitStruct.Pin = OUTPUT_CURRENT_SAMPLING_Pin|INPUT_VOLTAGE_SIMPLING_Pin|TEMPERATURE_SIMPLING_Pin|OUTPUT_VOLTAGE_SIMPLING_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+		GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    /* ADC1 DMA Init */
+		
+		
     /* ADC1 Init */
     hdma_adc1.Instance = DMA1_Channel1;
     hdma_adc1.Init.Direction = DMA_PERIPH_TO_MEMORY;
@@ -136,8 +149,9 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     hdma_adc1.Init.MemInc = DMA_MINC_ENABLE;
     hdma_adc1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
     hdma_adc1.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-    hdma_adc1.Init.Mode = DMA_CIRCULAR;
-    hdma_adc1.Init.Priority = DMA_PRIORITY_LOW;
+    hdma_adc1.Init.Mode = DMA_CIRCULAR;//DMA_CIRCULAR;
+    hdma_adc1.Init.Priority = DMA_PRIORITY_HIGH;
+		HAL_DMA_DeInit(&hdma_adc1);
     if (HAL_DMA_Init(&hdma_adc1) != HAL_OK)
     {
       _Error_Handler(__FILE__, __LINE__);
@@ -146,7 +160,10 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
     __HAL_LINKDMA(adcHandle,DMA_Handle,hdma_adc1);
 
   /* USER CODE BEGIN ADC1_MspInit 1 */
-
+		HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 1, 0);
+		HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+HAL_NVIC_SetPriority(ADC1_2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(ADC1_2_IRQn);
   /* USER CODE END ADC1_MspInit 1 */
   }
 }

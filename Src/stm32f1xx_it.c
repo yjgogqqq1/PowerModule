@@ -43,7 +43,7 @@
 extern DMA_HandleTypeDef hdma_adc1;
 extern CAN_HandleTypeDef hcan1;
 extern DMA_HandleTypeDef hdma_dac_ch1;
-
+extern ADC_HandleTypeDef hadc1;
 /******************************************************************************/
 /*            Cortex-M3 Processor Interruption and Exception Handlers         */ 
 /******************************************************************************/
@@ -197,6 +197,10 @@ void SysTick_Handler(void)
 /**
 * @brief This function handles DMA1 channel1 global interrupt.
 */
+void ADC1_2_IRQHandler(void)
+{
+  HAL_ADC_IRQHandler(&hadc1);
+}
 void DMA1_Channel1_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */

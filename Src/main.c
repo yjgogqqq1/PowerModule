@@ -100,9 +100,9 @@ int main(void)
   MX_DMA_Init();
   MX_ADC1_Init();
   ADC_ExInit(&hadc1);
-  MX_CAN1_Init();
-  CAN_ExInit(&hcan1);
-  MX_DAC_Init();
+  //MX_CAN1_Init();
+  //CAN_ExInit(&hcan1);
+  //MX_DAC_Init();
 	
   /* Infinite loop */
   while (1)
@@ -115,28 +115,22 @@ int main(void)
     /*       Since DMA transfer has been initiated previously by function     */
     /*       "HAL_ADC_Start_DMA()", this function will keep DMA transfer      */
     /*       active.                                                          */
-    HAL_ADC_Start(&hadc1);
     
-		/* Start ADC conversion on regular group with transfer by DMA */
-		if (HAL_ADC_Start_DMA(&hadc1,
-													(uint32_t *)AdcAverage,
-													4
-												 ) != HAL_OK)
-		{
-			/* Start Error */
-			Error_Handler();
-		}
-    /* Wait for conversion completion before conditional check hereafter */
+    
+    
+//	/* Wait for conversion completion before conditional check hereafter */
+		HAL_ADC_Start(&hadc1);
     HAL_ADC_PollForConversion(&hadc1, 1);
-    
     GetPowerModuleStatus();
     if(1==InputOverVoltageFlag)
     {
       //处理
+			PowerControl(POWER_OFF);
     }
     else
     {
       //处理
+			PowerControl(POWER_ON);
     }
     
     if(1==InputUnderVoltageFlag)
@@ -150,11 +144,11 @@ int main(void)
     
     if(1==OutputOverVoltageFlag)
     {
-      PowerControl(1);
+      PowerControl(POWER_OFF);
     }
     else
     {
-      PowerControl(0);
+      PowerControl(POWER_ON);
     }
     
     if(1==OutputOverCurrentFlag)
@@ -187,12 +181,12 @@ int main(void)
     if(1==OverTemperatureFlag)
     {
       FaultLightControl(1);
-      PowerControl(1);
+      PowerControl(POWER_OFF);
     }
     else
     {
       FaultLightControl(0);
-      PowerControl(0);
+      PowerControl(POWER_ON);
     }
     /* Set the data to be tranmitted */
     hcan1.pTxMsg->Data[0]=CurOutputVoltage&0xff;//输出电压
@@ -228,21 +222,20 @@ int main(void)
       |(1==OutputOverCurrentFlag)|(1==OverTemperatureFlag))
     {
       /*##-- Start the Transmission process ###############################*/
-      if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
-      {
-        /* Transmition Error */
-        Error_Handler();
-      }
+//      if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+//      {
+//        /* Transmition Error */
+//        Error_Handler();
+//      }
     }
 //    /* Set the data to be tranmitted */
 //    
     /*##-- Start the Transmission process ###############################*/
-    if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
-    {
-      /* Transmition Error */
-      Error_Handler();
-    }
-    HAL_Delay(10);
+//    if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+//    {
+//      /* Transmition Error */
+//      Error_Handler();
+//    }
   }
 
 }
