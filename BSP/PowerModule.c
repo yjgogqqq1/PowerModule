@@ -1,4 +1,8 @@
 #include "PowerModule.h"
+#include "string.h"
+
+
+#define LOCAL_CAN_ID                    (0x07)
 
 __IO uint16_t AdcAverage[4];
 uint16_t TargetOutputVoltage=0;
@@ -14,7 +18,11 @@ char ShortCircuitFlag=0;
 char OverTemperatureFlag=0;
 char PowerStatusFlag=0;
 uint32_t DacOutputValue=0;
-
+uint32_t PowerOnDelayCounter=0;
+uint32_t ShortCircuitRecoveryDelayCounter=0;
+char MaybeShortCircuitFlag=0;
+uint32_t ShortCircuitCheckDelayCounter=0;
+CanRxMsgTypeDef        ValidRxMessage={0,0};
 //OUTPUT
 void FaultLightControl(GPIO_PinState lightState)
 {
@@ -22,21 +30,18 @@ void FaultLightControl(GPIO_PinState lightState)
 }
 void WorkLightControl(GPIO_PinState lightState)
 {
+	
   HAL_GPIO_WritePin(WORK_LIGHT_GPIO_Port, WORK_LIGHT_Pin, lightState);
 }
 void PowerControl(GPIO_PinState PowerState)
 {
-  if((1==(hcan1.pRxMsg->Data[0]&0x01))&&(1!=InputOverVoltageFlag)
-		&&(1!=InputUnderVoltageFlag)&&(1!=OutputOverVoltageFlag))
-  {
     HAL_GPIO_WritePin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin, PowerState);
-  }
-  else
-  {
-    HAL_GPIO_WritePin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin, GPIO_PIN_SET);
-  }
-  
 }
+GPIO_PinState GetPowerOutStatus(void)
+{
+	HAL_GPIO_ReadPin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin);
+}
+
 //INPUT
 char  GetPowerStatus(void)
 {
@@ -55,7 +60,7 @@ char  GetPowerStatus(void)
   * @retval None
   */
 #define COMPUTATION_DIGITAL_12BITS_TO_INPUT_VOLTAGE(ADC_DATA)                        \
-  ((uint16_t)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f))
+(((uint16_t)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f))<600?0:((uint16_t)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f)))
 
 #define COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_CURRENT(ADC_DATA)                        \
   ((uint16_t)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*1000.0f*0.02f*10.0f))
@@ -93,29 +98,45 @@ uint16_t GetInputVoltage(void)
   return COMPUTATION_DIGITAL_12BITS_TO_INPUT_VOLTAGE(AdcAverage[1]);
 }
 
-uint16_t GetTemperature(void)
+int16_t GetTemperature(void)
 {
-  return AdcAverage[2];
+  return (-1786*(AdcAverage[2]*VDD_APPLI/RANGE_12BITS)+1821);
 }
 uint16_t GetOutputVoltage(void)
 {
   return COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_VOLTAGE_SAMPLE(AdcAverage[3]);
 }
 //DAC
-uint16_t OutputVoltageToDigital12Bits(uint16_t targetVoltage)
+
+uint16_t OutputVoltageToDigital12Bits(float targetVoltage)
 {
-  if(targetVoltage>463)
+	float tempValue=0.0f;
+  if(MAX_OUTPUT_V<targetVoltage)
   {
-    return 0;
+    targetVoltage=MAX_OUTPUT_V;
   }
-  else
-  {
-    return (int16_t)((targetVoltage*(-0.002298)+1.064)/VDD_APPLI*RANGE_12BITS);
-  }
+  else if(MIN_OUTPUT_V>targetVoltage)
+	{
+		targetVoltage=MIN_OUTPUT_V;
+	}
+	tempValue=((targetVoltage*(-0.01146)+5.305)*RANGE_12BITS/VDD_APPLI);
+	if(tempValue>RANGE_12BITS)
+	{
+		return RANGE_12BITS;
+	}
+	else if(tempValue<0)
+	{
+		return 0;
+	}
+	return tempValue;
 }
 //CAN
 char ReceivedCanCommendFlag=0;
 
+uint32_t GetLocalCanId(void)
+{
+	return LOCAL_CAN_ID;
+}
 void CAN_ExInit(CAN_HandleTypeDef* hcan)
 {
   static CanTxMsgTypeDef        TxMessage;
@@ -155,12 +176,19 @@ void CAN_ExInit(CAN_HandleTypeDef* hcan)
     Error_Handler();
   }
 }
-void CAN_ReciveDataHandler(CAN_HandleTypeDef hcan)
+void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan)
 {
-  if(LOCAL_CAN_ID==hcan.pRxMsg->StdId)
+  if(LOCAL_CAN_ID==hcan->pRxMsg->StdId)
   {
     ReceivedCanCommendFlag=true;
+		memcpy(&ValidRxMessage,hcan->pRxMsg,sizeof(CanRxMsgTypeDef));
   }
+	/*## Start the Reception process and enable reception interrupt #########*/
+	if (HAL_CAN_Receive_IT(hcan, CAN_FIFO0) != HAL_OK)
+	{
+		/* Reception Error */
+		Error_Handler();
+	}
 }
 
 //Power Module Status
@@ -171,7 +199,7 @@ void GetPowerModuleStatus(void)
   CurOutputCurrent=GetOutputCurrent();
   CurModuleTemperature=GetTemperature();
   PowerStatusFlag=GetPowerStatus();
-  DacOutputValue=OutputVoltageToDigital12Bits((hcan1.pRxMsg->Data[2]<<8)|hcan1.pRxMsg->Data[1]);
+  DacOutputValue=OutputVoltageToDigital12Bits((ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[1]);
   if(CurInputVoltage>=IN_OVER_V_PROTECT_MIN)
   {
     InputOverVoltageFlag=true;
@@ -181,7 +209,7 @@ void GetPowerModuleStatus(void)
     InputOverVoltageFlag=false;
   }
   
-  if(CurInputVoltage<=IN_UNDER_V_RECOVER_MIN)
+  if((CurInputVoltage<=IN_UNDER_V_PROTECT_MIN)&&(PowerOnDelayCounter>=POWER_ON_MAX_DELAY))
   {
     InputUnderVoltageFlag=true;
   }
@@ -203,7 +231,7 @@ void GetPowerModuleStatus(void)
     OutputOverCurrentFlag=false;
   }
   
-  if(CurModuleTemperature>=OVER_TEMPERATURE_VALUE)
+  if((CurModuleTemperature>=OVER_TEMPERATURE_VALUE)&&(PowerOnDelayCounter>=POWER_ON_MAX_DELAY))
   {
     OverTemperatureFlag=1;
   }
@@ -213,4 +241,20 @@ void GetPowerModuleStatus(void)
   }
   
   //¶ÌÂ·ÅÐ¶Ï
+	if((POWER_ON==(GetPowerOutStatus()))&&(1==GetPowerStatus())&&(0==ShortCircuitFlag))
+	{
+		MaybeShortCircuitFlag=1;
+		if((CurOutputVoltage<=50)&&(ShortCircuitCheckDelayCounter>500))//MAX_SHORT_CIRCUIT_CHECK_DELAY
+		{
+			ShortCircuitFlag=1;
+		}
+	}
+	else if((1==ShortCircuitFlag)&&(SHORT_CIRCUIT_MAX_DELAY<=ShortCircuitRecoveryDelayCounter))
+	{
+		ShortCircuitFlag=0;
+	}
+	else if((POWER_ON==(GetPowerOutStatus()))&&(0==GetPowerStatus()))
+	{
+		MaybeShortCircuitFlag=0;
+	}
 }

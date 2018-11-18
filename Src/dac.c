@@ -73,7 +73,7 @@ void MX_DAC_Init(void)
   }
 	
 	/*##-3- Set DAC Channel1 DHR register ######################################*/
-  if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 592) != HAL_OK)
+  if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R,OutputVoltageToDigital12Bits(400)) != HAL_OK)
   {
     /* Setting value Error */
     Error_Handler();

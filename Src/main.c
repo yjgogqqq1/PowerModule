@@ -100,9 +100,9 @@ int main(void)
   MX_DMA_Init();
   MX_ADC1_Init();
   ADC_ExInit(&hadc1);
-  //MX_CAN1_Init();
-  //CAN_ExInit(&hcan1);
-  //MX_DAC_Init();
+  MX_CAN1_Init();
+  CAN_ExInit(&hcan1);
+  MX_DAC_Init();
 	
   /* Infinite loop */
   while (1)
@@ -122,35 +122,21 @@ int main(void)
 		HAL_ADC_Start(&hadc1);
     HAL_ADC_PollForConversion(&hadc1, 1);
     GetPowerModuleStatus();
-    if(1==InputOverVoltageFlag)
+		
+    if((GetLocalCanId()==ValidRxMessage.StdId)&&(1==(ValidRxMessage.Data[0]&0x01))&&(1!=InputOverVoltageFlag)&&(1!=ShortCircuitFlag)
+			&&(1!=InputUnderVoltageFlag)&&(1!=OutputOverVoltageFlag)&&(1!=OverTemperatureFlag))
+		{
+      //处理
+			PowerControl(POWER_ON);
+    }
+    else
     {
       //处理
 			PowerControl(POWER_OFF);
     }
-    else
-    {
-      //处理
-			PowerControl(POWER_ON);
-    }
     
-    if(1==InputUnderVoltageFlag)
-    {
-      //处理
-    }
-    else
-    {
-      //处理
-    }
-    
-    if(1==OutputOverVoltageFlag)
-    {
-      PowerControl(POWER_OFF);
-    }
-    else
-    {
-      PowerControl(POWER_ON);
-    }
-    
+
+		
     if(1==OutputOverCurrentFlag)
     {
       //DAC降压输出由硬件实现，软件只置标志位
@@ -158,10 +144,10 @@ int main(void)
     else
     {
       //DAC正常输出
-      if(1==(hcan1.pRxMsg->Data[0]&0x01))   //？？？？？需不需要添加故障标志位判断，有故障时不输出
+      if((GetLocalCanId()==ValidRxMessage.StdId)&&(1==(ValidRxMessage.Data[0]&0x01)))   //？？？？？需不需要添加故障标志位判断，有故障时不输出
       {
         /*##-3- Set DAC Channel1 DHR register ######################################*/
-				if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, DacOutputValue) != HAL_OK)
+				if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, OutputVoltageToDigital12Bits((ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[1])) != HAL_OK)
 				{
 					/* Setting value Error */
 					Error_Handler();
@@ -175,18 +161,7 @@ int main(void)
       }
       else
       {
-      }
-        
-    }
-    if(1==OverTemperatureFlag)
-    {
-      FaultLightControl(1);
-      PowerControl(POWER_OFF);
-    }
-    else
-    {
-      FaultLightControl(0);
-      PowerControl(POWER_ON);
+      } 
     }
     /* Set the data to be tranmitted */
     hcan1.pTxMsg->Data[0]=CurOutputVoltage&0xff;//输出电压
@@ -198,44 +173,37 @@ int main(void)
     //过温|输出短路|输出过压|输入欠压|输入过压|运行状态;//输出电流
     hcan1.pTxMsg->Data[6]=(OverTemperatureFlag<<5)|(ShortCircuitFlag<<4)
                         |(OutputOverVoltageFlag<<3)|(InputUnderVoltageFlag<<2)
-                        |(InputOverVoltageFlag<<1)|PowerStatusFlag;
+                        |(InputOverVoltageFlag<<1)|(!GetPowerOutStatus());
     if(true==ReceivedCanCommendFlag)
     {
       ReceivedCanCommendFlag=false;
       //DA输出电压 
-      TargetOutputVoltage=(hcan1.pRxMsg->Data[2]<<8)|hcan1.pRxMsg->Data[1];
+      TargetOutputVoltage=(ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[1];
       /*##-- Start the Transmission process ###############################*/
       if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
       {
         /* Transmition Error */
         Error_Handler();
       }
-			  /*## Start the Reception process and enable reception interrupt #########*/
-			if (HAL_CAN_Receive_IT(&hcan1, CAN_FIFO0) != HAL_OK)
-			{
-				/* Reception Error */
-				Error_Handler();
-			}
+			
     }
     //判断故障信息
-    if((1==InputOverVoltageFlag)|(1==InputUnderVoltageFlag)|(1==OutputOverVoltageFlag)
-      |(1==OutputOverCurrentFlag)|(1==OverTemperatureFlag))
+    if((1==InputOverVoltageFlag)||(1==InputUnderVoltageFlag)||(1==OutputOverVoltageFlag)
+      ||(1==OutputOverCurrentFlag)||(1==OverTemperatureFlag)||(1==ShortCircuitFlag))
     {
+			FaultLightControl(LED_OFF);
       /*##-- Start the Transmission process ###############################*/
-//      if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
-//      {
-//        /* Transmition Error */
-//        Error_Handler();
-//      }
+      if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+      {
+        /* Transmition Error */
+        Error_Handler();
+      }
+			HAL_Delay(100);
     }
-//    /* Set the data to be tranmitted */
-//    
-    /*##-- Start the Transmission process ###############################*/
-//    if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
-//    {
-//      /* Transmition Error */
-//      Error_Handler();
-//    }
+		else
+		{
+			FaultLightControl(LED_ON);
+		}
   }
 
 }
@@ -283,6 +251,20 @@ void SystemClock_Config(void)
     /* Initialization Error */
     while(1); 
   }
+	/**Configure the Systick interrupt time 
+	*/
+  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
+
+	/**Configure the Systick 
+	*/
+  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
+
+	/**Configure the Systick interrupt time 
+	*/
+  __HAL_RCC_PLLI2S_ENABLE();
+
+  /* SysTick_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 //void SystemClock_Config(void)
 //{

@@ -67,7 +67,7 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-
+	//HAL_NVIC_SystemReset();
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
@@ -85,7 +85,7 @@ void HardFault_Handler(void)
 void MemManage_Handler(void)
 {
   /* USER CODE BEGIN MemoryManagement_IRQn 0 */
-
+	//HAL_NVIC_SystemReset();
   /* USER CODE END MemoryManagement_IRQn 0 */
   while (1)
   {
@@ -103,7 +103,7 @@ void MemManage_Handler(void)
 void BusFault_Handler(void)
 {
   /* USER CODE BEGIN BusFault_IRQn 0 */
-
+	//HAL_NVIC_SystemReset();
   /* USER CODE END BusFault_IRQn 0 */
   while (1)
   {
@@ -121,7 +121,7 @@ void BusFault_Handler(void)
 void UsageFault_Handler(void)
 {
   /* USER CODE BEGIN UsageFault_IRQn 0 */
-
+	//HAL_NVIC_SystemReset();
   /* USER CODE END UsageFault_IRQn 0 */
   while (1)
   {
@@ -183,7 +183,31 @@ void SysTick_Handler(void)
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-
+	
+	if(PowerOnDelayCounter>=POWER_ON_MAX_DELAY)
+	{
+		PowerOnDelayCounter= POWER_ON_MAX_DELAY;
+	}
+	else
+	{
+		PowerOnDelayCounter++;
+	}
+	if(1==ShortCircuitFlag)
+	{
+		ShortCircuitRecoveryDelayCounter++;
+	}
+	else
+	{
+		ShortCircuitRecoveryDelayCounter=0;
+	}
+	if(1==MaybeShortCircuitFlag)
+	{
+		ShortCircuitCheckDelayCounter++;
+	}
+	else
+	{
+		ShortCircuitCheckDelayCounter=0;
+	}
   /* USER CODE END SysTick_IRQn 1 */
 }
 
@@ -222,7 +246,7 @@ void CAN1_RX0_IRQHandler(void)
   /* USER CODE END CAN1_RX0_IRQn 0 */
   HAL_CAN_IRQHandler(&hcan1);
   /* USER CODE BEGIN CAN1_RX0_IRQn 1 */
-  CAN_ReciveDataHandler(hcan1);
+  CAN_ReciveDataHandler(&hcan1);
   /* USER CODE END CAN1_RX0_IRQn 1 */
 }
 
