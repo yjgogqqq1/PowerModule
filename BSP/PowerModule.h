@@ -13,14 +13,22 @@
 #include "can.h"
 #include "stm32f1xx_hal_gpio.h"
 
-   
+#define POWER_ON_COMMAND        (0x01)
+#define POWER_OFF_COMMAND       (0x00)
+#define QUERY_COMMAND           (0x02)
+#define FEEDBACK_COMMAND        (0x03)
+#define ERROR_COMMAND           (0x04)
+
+#define POWER_DEVICE            (0x00)
+
+
 #define VDD_APPLI                      (2.5f)   /* Value of analog voltage supply Vdda (unit: V) */
 #define EXTERNAL_VDD_APPLI             ((uint32_t) 6000)   
 #define RANGE_12BITS                   ((uint32_t) 4095)   /* Max value with a full range of 12 bits */
 //can
 
 #define HOST_CAN_ID                     (0x01)
-   
+#define BROADCAST_ID                    (0x00)
 //输入过压保护点范围
 #define IN_OVER_V_PROTECT_MAX       (6700)  //680
 #define IN_OVER_V_PROTECT_MIN       (6700)  //660
@@ -98,6 +106,7 @@ int16_t GetTemperature(void);
 uint16_t GetOutputVoltage(void);
 //CAN
 uint32_t GetLocalCanId(void);
+uint32_t GetDeviceId(void);
 void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan);
 void CAN_ExInit(CAN_HandleTypeDef *hcan);
 

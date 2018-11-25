@@ -3,6 +3,7 @@
 
 
 #define LOCAL_CAN_ID                    (0x07)
+#define DEVICE_ID                       (LOCAL_CAN_ID)
 
 __IO uint16_t AdcAverage[4];
 uint16_t TargetOutputVoltage=0;
@@ -137,6 +138,10 @@ uint32_t GetLocalCanId(void)
 {
 	return LOCAL_CAN_ID;
 }
+uint32_t GetDeviceId(void)
+{
+	return DEVICE_ID;
+}
 void CAN_ExInit(CAN_HandleTypeDef* hcan)
 {
   static CanTxMsgTypeDef        TxMessage;
@@ -146,9 +151,9 @@ void CAN_ExInit(CAN_HandleTypeDef* hcan)
   sFilterConfig.FilterNumber = 0;
   sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-  sFilterConfig.FilterIdHigh = 0x0000;
+  sFilterConfig.FilterIdHigh = (((uint32_t)HOST_CAN_ID<<21)&0xFFFF0000)>>16;
   sFilterConfig.FilterIdLow = 0x0000;
-  sFilterConfig.FilterMaskIdHigh = 0x0000;
+  sFilterConfig.FilterMaskIdHigh = 0xFFE0;
   sFilterConfig.FilterMaskIdLow = 0x0000;
   sFilterConfig.FilterFIFOAssignment = 0;
   sFilterConfig.FilterActivation = ENABLE;
@@ -163,8 +168,8 @@ void CAN_ExInit(CAN_HandleTypeDef* hcan)
   hcan->pTxMsg = &TxMessage;
   hcan->pRxMsg = &RxMessage;
   
-  hcan->pTxMsg->StdId=HOST_CAN_ID;
-  hcan->pTxMsg->ExtId = 0x01;
+  hcan->pTxMsg->StdId=LOCAL_CAN_ID;
+  hcan->pTxMsg->ExtId = 0x00;
   hcan->pTxMsg->RTR = CAN_RTR_DATA;
   hcan->pTxMsg->IDE = CAN_ID_STD;
   hcan->pTxMsg->DLC = 8;
@@ -178,7 +183,9 @@ void CAN_ExInit(CAN_HandleTypeDef* hcan)
 }
 void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan)
 {
-  if(LOCAL_CAN_ID==hcan->pRxMsg->StdId)
+  if((POWER_DEVICE==((hcan->pRxMsg->Data[0]>>4)&0x0F))
+    &&((DEVICE_ID==hcan->pRxMsg->Data[1])
+    ||(BROADCAST_ID==hcan->pRxMsg->Data[1])))
   {
     ReceivedCanCommendFlag=true;
 		memcpy(&ValidRxMessage,hcan->pRxMsg,sizeof(CanRxMsgTypeDef));

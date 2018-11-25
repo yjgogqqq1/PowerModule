@@ -123,13 +123,18 @@ int main(void)
     HAL_ADC_PollForConversion(&hadc1, 1);
     GetPowerModuleStatus();
 		
-    if((GetLocalCanId()==ValidRxMessage.StdId)&&(1==(ValidRxMessage.Data[0]&0x01))&&(1!=InputOverVoltageFlag)&&(1!=ShortCircuitFlag)
-			&&(1!=InputUnderVoltageFlag)&&(1!=OutputOverVoltageFlag)&&(1!=OverTemperatureFlag))
+    if((1==InputOverVoltageFlag)||(1==ShortCircuitFlag)
+			||(1==InputUnderVoltageFlag)||(1==OutputOverVoltageFlag)
+      ||(1==OverTemperatureFlag))
 		{
       //处理
-			PowerControl(POWER_ON);
+			PowerControl(POWER_OFF);
     }
-    else
+    else if((POWER_ON_COMMAND==ValidRxMessage.Data[0]))
+    {
+      PowerControl(POWER_ON);
+    }
+    else if((POWER_OFF_COMMAND==ValidRxMessage.Data[0]))
     {
       //处理
 			PowerControl(POWER_OFF);
@@ -144,10 +149,10 @@ int main(void)
     else
     {
       //DAC正常输出
-      if((GetLocalCanId()==ValidRxMessage.StdId)&&(1==(ValidRxMessage.Data[0]&0x01)))   //？？？？？需不需要添加故障标志位判断，有故障时不输出
+      if((GetDeviceId()==ValidRxMessage.Data[1])&&(POWER_ON_COMMAND==ValidRxMessage.Data[0]))   //？？？？？需不需要添加故障标志位判断，有故障时不输出
       {
         /*##-3- Set DAC Channel1 DHR register ######################################*/
-				if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, OutputVoltageToDigital12Bits((ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[1])) != HAL_OK)
+				if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, OutputVoltageToDigital12Bits((ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[3])) != HAL_OK)
 				{
 					/* Setting value Error */
 					Error_Handler();
@@ -163,40 +168,50 @@ int main(void)
       {
       } 
     }
-    /* Set the data to be tranmitted */
-    hcan1.pTxMsg->Data[0]=CurOutputVoltage&0xff;//输出电压
-    hcan1.pTxMsg->Data[1]=CurOutputVoltage>>8;
-    hcan1.pTxMsg->Data[2]=CurOutputCurrent&0xff;//输出电流
-    hcan1.pTxMsg->Data[3]=CurOutputCurrent>>8;
-    hcan1.pTxMsg->Data[4]=CurModuleTemperature&0xFF;//模块内温度
-    hcan1.pTxMsg->Data[5]=CurModuleTemperature>>8;
-    //过温|输出短路|输出过压|输入欠压|输入过压|运行状态;//输出电流
-    hcan1.pTxMsg->Data[6]=(OverTemperatureFlag<<5)|(ShortCircuitFlag<<4)
-                        |(OutputOverVoltageFlag<<3)|(InputUnderVoltageFlag<<2)
-                        |(InputOverVoltageFlag<<1)|(!GetPowerOutStatus());
-    if(true==ReceivedCanCommendFlag)
+		if(true==ReceivedCanCommendFlag)
     {
       ReceivedCanCommendFlag=false;
-      //DA输出电压 
-      TargetOutputVoltage=(ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[1];
-      /*##-- Start the Transmission process ###############################*/
-      if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
-      {
-        /* Transmition Error */
-        Error_Handler();
-      }
-			
+			if((QUERY_COMMAND==ValidRxMessage.Data[0])&&(GetDeviceId()==ValidRxMessage.Data[1]))
+			{
+				/* Set the data to be tranmitted */
+				hcan1.pTxMsg->Data[0]=FEEDBACK_COMMAND;//CurOutputVoltage&0xff;//输出电压
+				hcan1.pTxMsg->Data[1]=0x00;//CurOutputVoltage>>8;
+				hcan1.pTxMsg->Data[2]=CurOutputVoltage>>8;//CurOutputCurrent&0xff;//输出电流
+				hcan1.pTxMsg->Data[3]=CurOutputVoltage&0xff;//CurOutputCurrent>>8;
+				hcan1.pTxMsg->Data[4]=0x00;
+				hcan1.pTxMsg->Data[5]=0x00;
+				hcan1.pTxMsg->Data[6]=0x00;
+				/*##-- Start the Transmission process ###############################*/
+				if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+				{
+					/* Transmition Error */
+					//Error_Handler();
+				}
+			}
     }
+    
+    
     //判断故障信息
     if((1==InputOverVoltageFlag)||(1==InputUnderVoltageFlag)||(1==OutputOverVoltageFlag)
       ||(1==OutputOverCurrentFlag)||(1==OverTemperatureFlag)||(1==ShortCircuitFlag))
     {
 			FaultLightControl(LED_OFF);
+      /* Set the data to be tranmitted */
+      hcan1.pTxMsg->Data[0]=ERROR_COMMAND;//CurOutputVoltage&0xff;//输出电压
+      hcan1.pTxMsg->Data[1]=0x00;//CurOutputVoltage>>8;
+      hcan1.pTxMsg->Data[2]=0x00;//CurOutputCurrent&0xff;//输出电流
+      hcan1.pTxMsg->Data[3]=0x00;//CurOutputCurrent>>8;
+      hcan1.pTxMsg->Data[4]=0x00;
+      hcan1.pTxMsg->Data[5]=0x00;
+      //过温|输出短路|输出过压|输入欠压|输入过压|运行状态;//输出电流
+      hcan1.pTxMsg->Data[4]=(OverTemperatureFlag<<5)|(ShortCircuitFlag<<4)
+                        |(OutputOverVoltageFlag<<3)|(InputUnderVoltageFlag<<2)
+                        |(InputOverVoltageFlag<<1)|(!GetPowerOutStatus());
       /*##-- Start the Transmission process ###############################*/
       if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
       {
         /* Transmition Error */
-        Error_Handler();
+        //Error_Handler();
       }
 			HAL_Delay(100);
     }
