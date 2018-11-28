@@ -119,26 +119,73 @@ int main(void)
     
     
 //	/* Wait for conversion completion before conditional check hereafter */
-		HAL_ADC_Start(&hadc1);
+    HAL_ADC_Start(&hadc1);
     HAL_ADC_PollForConversion(&hadc1, 1);
     GetPowerModuleStatus();
 		
-    if((1==InputOverVoltageFlag)||(1==ShortCircuitFlag)
-			||(1==InputUnderVoltageFlag)||(1==OutputOverVoltageFlag)
-      ||(1==OverTemperatureFlag))
-		{
-      //处理
-			PowerControl(POWER_OFF);
-    }
-    else if((POWER_ON_COMMAND==ValidRxMessage.Data[0]))
-    {
-      PowerControl(POWER_ON);
-    }
-    else if((POWER_OFF_COMMAND==ValidRxMessage.Data[0]))
+    if((1==InputOverVoltageFlag)||(1==InputUnderVoltageFlag)||(1==OutputOverVoltageFlag)
+      ||(1==OutputOverCurrentFlag)||(1==OverTemperatureFlag)||(1==ShortCircuitFlag))
     {
       //处理
-			PowerControl(POWER_OFF);
+      PowerControl(POWER_OFF);
+      FaultLightControl(LED_OFF);
+      /* Set the data to be tranmitted */
+      hcan1.pTxMsg->Data[0]=ERROR_COMMAND;//CurOutputVoltage&0xff;//输出电压
+      hcan1.pTxMsg->Data[1]=GetDeviceId();//CurOutputVoltage>>8;
+      hcan1.pTxMsg->Data[2]=0x00;//CurOutputCurrent&0xff;//输出电流
+      hcan1.pTxMsg->Data[3]=0x00;//CurOutputCurrent>>8;
+      hcan1.pTxMsg->Data[4]=0x00;
+      hcan1.pTxMsg->Data[5]=0x00;
+      //过温|输出短路|输出过压|输入欠压|输入过压|运行状态;//输出电流
+      hcan1.pTxMsg->Data[4]=(OverTemperatureFlag<<5)|(ShortCircuitFlag<<4)
+                        |(OutputOverVoltageFlag<<3)|(InputUnderVoltageFlag<<2)
+                        |(InputOverVoltageFlag<<1)|(!GetPowerOutStatus());
+
+      /*##-- Start the Transmission process ###############################*/
+      if(false==FaultSendStopFlag)
+      {
+        if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+        {
+          /* Transmition Error */
+          //Error_Handler();
+        }
+        HAL_Delay(100);
+      }
     }
+    else 
+    {
+      //if(LED_OFF==GetFaultLightStatus())
+      {
+        /* Set the data to be tranmitted */
+				hcan1.pTxMsg->Data[0]=ERROR_COMMAND;//CurOutputVoltage&0xff;//输出电压
+				hcan1.pTxMsg->Data[1]=GetDeviceId();//CurOutputVoltage>>8;
+				hcan1.pTxMsg->Data[2]=0x00;//CurOutputCurrent&0xff;//输出电流
+				hcan1.pTxMsg->Data[3]=0x00;//CurOutputCurrent>>8;
+				hcan1.pTxMsg->Data[4]=0x00;
+				hcan1.pTxMsg->Data[5]=0x00;
+				hcan1.pTxMsg->Data[6]=0x00;
+				/*##-- Start the Transmission process ###############################*/
+				if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+				{
+					/* Transmition Error */
+					//Error_Handler();
+				}
+      }
+      FaultSendStopFlag=false;
+      
+      FaultLightControl(LED_ON);
+      
+      if((POWER_ON_COMMAND==ValidRxMessage.Data[0]))
+      {
+        PowerControl(POWER_ON);
+      }
+      else if((POWER_OFF_COMMAND==ValidRxMessage.Data[0]))
+      {
+        //处理
+        PowerControl(POWER_OFF);
+      }
+    }
+    
     
 
 		
@@ -171,11 +218,11 @@ int main(void)
 		if(true==ReceivedCanCommendFlag)
     {
       ReceivedCanCommendFlag=false;
-			if((QUERY_COMMAND==ValidRxMessage.Data[0])&&(GetDeviceId()==ValidRxMessage.Data[1]))
+			if((QUERY_COMMAND==ValidRxMessage.Data[0]))
 			{
 				/* Set the data to be tranmitted */
 				hcan1.pTxMsg->Data[0]=FEEDBACK_COMMAND;//CurOutputVoltage&0xff;//输出电压
-				hcan1.pTxMsg->Data[1]=0x00;//CurOutputVoltage>>8;
+				hcan1.pTxMsg->Data[1]=GetDeviceId();//CurOutputVoltage>>8;
 				hcan1.pTxMsg->Data[2]=CurOutputVoltage>>8;//CurOutputCurrent&0xff;//输出电流
 				hcan1.pTxMsg->Data[3]=CurOutputVoltage&0xff;//CurOutputCurrent>>8;
 				hcan1.pTxMsg->Data[4]=0x00;
@@ -189,36 +236,6 @@ int main(void)
 				}
 			}
     }
-    
-    
-    //判断故障信息
-    if((1==InputOverVoltageFlag)||(1==InputUnderVoltageFlag)||(1==OutputOverVoltageFlag)
-      ||(1==OutputOverCurrentFlag)||(1==OverTemperatureFlag)||(1==ShortCircuitFlag))
-    {
-			FaultLightControl(LED_OFF);
-      /* Set the data to be tranmitted */
-      hcan1.pTxMsg->Data[0]=ERROR_COMMAND;//CurOutputVoltage&0xff;//输出电压
-      hcan1.pTxMsg->Data[1]=0x00;//CurOutputVoltage>>8;
-      hcan1.pTxMsg->Data[2]=0x00;//CurOutputCurrent&0xff;//输出电流
-      hcan1.pTxMsg->Data[3]=0x00;//CurOutputCurrent>>8;
-      hcan1.pTxMsg->Data[4]=0x00;
-      hcan1.pTxMsg->Data[5]=0x00;
-      //过温|输出短路|输出过压|输入欠压|输入过压|运行状态;//输出电流
-      hcan1.pTxMsg->Data[4]=(OverTemperatureFlag<<5)|(ShortCircuitFlag<<4)
-                        |(OutputOverVoltageFlag<<3)|(InputUnderVoltageFlag<<2)
-                        |(InputOverVoltageFlag<<1)|(!GetPowerOutStatus());
-      /*##-- Start the Transmission process ###############################*/
-      if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
-      {
-        /* Transmition Error */
-        //Error_Handler();
-      }
-			HAL_Delay(100);
-    }
-		else
-		{
-			FaultLightControl(LED_ON);
-		}
   }
 
 }

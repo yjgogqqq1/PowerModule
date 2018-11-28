@@ -16,9 +16,13 @@
 #define POWER_ON_COMMAND        (0x01)
 #define POWER_OFF_COMMAND       (0x00)
 #define QUERY_COMMAND           (0x02)
+#define RESET_FAULT_COMMAND     (0x04)
+
 #define FEEDBACK_COMMAND        (0x03)
 #define ERROR_COMMAND           (0x04)
 
+//
+#define CONFIG_COMMAND          (0x03)
 #define POWER_DEVICE            (0x00)
 
 
@@ -66,9 +70,18 @@
 #define POWER_ON_MAX_DELAY					(1000)
 #define SHORT_CIRCUIT_MAX_DELAY			(3000)
 #define MAX_SHORT_CIRCUIT_CHECK_DELAY     (100)
+//FLASH
+
+/* Base address of the Flash sectors */
+#define ADDR_FLASH_PAGE_127   ((uint32_t)0x0801FC00) /* Base @ of Page 127, 1 Kbytes */
+
+
 enum{false,true};
 enum{POWER_ON,POWER_OFF};
 enum{LED_OFF,LED_ON};
+
+
+
 extern char ReceivedCanCommendFlag;
 extern __IO uint16_t AdcAverage[4];
 extern uint16_t TargetOutputVoltage;
@@ -82,6 +95,7 @@ extern char OutputOverVoltageFlag;
 extern char OutputOverCurrentFlag;
 extern char ShortCircuitFlag;
 extern char OverTemperatureFlag;
+extern char FaultSendStopFlag;
 extern char PowerStatusFlag;
 extern uint32_t DacOutputValue;
 extern uint32_t PowerOnDelayCounter;
@@ -93,6 +107,7 @@ extern CanRxMsgTypeDef        ValidRxMessage;
 
 char  GetPowerStatus(void);
 void FaultLightControl(GPIO_PinState lightState);
+GPIO_PinState GetFaultLightStatus(void);
 void PowerControl(GPIO_PinState PowerState);
 GPIO_PinState GetPowerOutStatus(void);
 
