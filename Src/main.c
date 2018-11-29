@@ -119,15 +119,15 @@ int main(void)
     
     
 //	/* Wait for conversion completion before conditional check hereafter */
-		HAL_ADC_Start(&hadc1);
+    HAL_ADC_Start(&hadc1);
     HAL_ADC_PollForConversion(&hadc1, 1);
     GetPowerModuleStatus();
 		
     if((1==InputOverVoltageFlag)||(1==InputUnderVoltageFlag)||(1==OutputOverVoltageFlag)
       ||(1==OutputOverCurrentFlag)||(1==OverTemperatureFlag)||(1==ShortCircuitFlag))
-		{
+    {
       //处理
-			PowerControl(POWER_OFF);
+      PowerControl(POWER_OFF);
       FaultLightControl(LED_OFF);
       /* Set the data to be tranmitted */
       hcan1.pTxMsg->Data[0]=ERROR_COMMAND;//CurOutputVoltage&0xff;//输出电压
@@ -154,8 +154,7 @@ int main(void)
     }
     else 
     {
-      FaultLightControl(LED_ON);
-      if(true==FaultSendStopFlag)
+      if(LED_OFF==GetFaultLightStatus())
       {
         /* Set the data to be tranmitted */
 				hcan1.pTxMsg->Data[0]=ERROR_COMMAND;//CurOutputVoltage&0xff;//输出电压
@@ -173,6 +172,9 @@ int main(void)
 				}
       }
       FaultSendStopFlag=false;
+      
+      FaultLightControl(LED_ON);
+      
       if((POWER_ON_COMMAND==ValidRxMessage.Data[0]))
       {
         PowerControl(POWER_ON);

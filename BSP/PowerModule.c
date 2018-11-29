@@ -31,6 +31,12 @@ void FaultLightControl(GPIO_PinState lightState)
 {
   HAL_GPIO_WritePin(FAULT_LIGHT_GPIO_Port, FAULT_LIGHT_Pin, lightState);
 }
+
+GPIO_PinState GetFaultLightStatus(void)
+{
+	HAL_GPIO_ReadPin(FAULT_LIGHT_GPIO_Port, FAULT_LIGHT_Pin);
+}
+
 void WorkLightControl(GPIO_PinState lightState)
 {
 	
@@ -220,7 +226,7 @@ void GetPowerModuleStatus(void)
   {
     InputOverVoltageFlag=true;
   }
-  else
+  else if(CurInputVoltage<=IN_OVER_V_RECOVER_MAX)
   {
     InputOverVoltageFlag=false;
   }
@@ -229,10 +235,11 @@ void GetPowerModuleStatus(void)
   {
     InputUnderVoltageFlag=true;
   }
-  else
+  else if(IN_UNDER_V_RECOVER_MIN<=CurInputVoltage)
   {
     InputUnderVoltageFlag=false;
   }
+  
   if(CurOutputVoltage>=OUT_OVER_V_PROTECT_MIN)
   {
     OutputOverVoltageFlag=true;

@@ -107,6 +107,7 @@ extern CanRxMsgTypeDef        ValidRxMessage;
 
 char  GetPowerStatus(void);
 void FaultLightControl(GPIO_PinState lightState);
+GPIO_PinState GetFaultLightStatus(void);
 void PowerControl(GPIO_PinState PowerState);
 GPIO_PinState GetPowerOutStatus(void);
 
