@@ -17,6 +17,7 @@ char OutputOverVoltageFlag=0;
 char OutputOverCurrentFlag=0;
 char ShortCircuitFlag=0;
 char OverTemperatureFlag=0;
+char FaultSendStopFlag=0;
 char PowerStatusFlag=0;
 uint32_t DacOutputValue=0;
 uint32_t PowerOnDelayCounter=0;
@@ -24,6 +25,7 @@ uint32_t ShortCircuitRecoveryDelayCounter=0;
 char MaybeShortCircuitFlag=0;
 uint32_t ShortCircuitCheckDelayCounter=0;
 CanRxMsgTypeDef        ValidRxMessage={0,0};
+
 //OUTPUT
 void FaultLightControl(GPIO_PinState lightState)
 {
@@ -187,8 +189,15 @@ void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan)
     &&((DEVICE_ID==hcan->pRxMsg->Data[1])
     ||(BROADCAST_ID==hcan->pRxMsg->Data[1])))
   {
-    ReceivedCanCommendFlag=true;
-		memcpy(&ValidRxMessage,hcan->pRxMsg,sizeof(CanRxMsgTypeDef));
+    if(RESET_FAULT_COMMAND==hcan->pRxMsg->Data[0])
+    {
+      FaultSendStopFlag=true;
+    }
+    else
+    {
+      ReceivedCanCommendFlag=true;
+      memcpy(&ValidRxMessage,hcan->pRxMsg,sizeof(CanRxMsgTypeDef));
+    }
   }
 	/*## Start the Reception process and enable reception interrupt #########*/
 	if (HAL_CAN_Receive_IT(hcan, CAN_FIFO0) != HAL_OK)
@@ -265,3 +274,124 @@ void GetPowerModuleStatus(void)
 		MaybeShortCircuitFlag=0;
 	}
 }
+
+
+//FLASH
+
+#define FLASH_USER_START_ADDR   ADDR_FLASH_PAGE_127   /* Start @ of user Flash area */
+#define FLASH_USER_END_ADDR     ADDR_FLASH_PAGE_127 + FLASH_PAGE_SIZE   /* End @ of user Flash area */
+/* Private variables ---------------------------------------------------------*/
+uint32_t *const pPowerOnCounter=(uint32_t *)ADDR_FLASH_PAGE_127;
+uint32_t *const pCanID=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*1));
+uint32_t *const pInVolCalPara00=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*2));//Input Voltage Calibration Parameter 01;
+uint32_t *const pInVolCalPara01=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*3));//Input Voltage Calibration Parameter 01;
+
+uint32_t *const pOutVolCalPara00=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*4));//Output Voltage Calibration Parameter 01;
+uint32_t *const pOutVolCalPara01=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*5));//Output Voltage Calibration Parameter 01;
+
+uint32_t *const pOutCurCalPara00=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*6));//Output Current Calibration Parameter 01;
+uint32_t *const pOutCurCalPara01=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*7));//Output Current Calibration Parameter 01;
+
+uint32_t *const pTemCalPara00=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*8));//Temperature Calibration Parameter 01;
+uint32_t *const pTemCalPara01=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*9));//Temperature Calibration Parameter 01;
+
+
+uint32_t PAGEError = 0;
+__IO uint32_t MemoryProgramStatus = 0;
+void WriteCanDataToFlash(CanRxMsgTypeDef *pCanRxMsg)
+{
+  /* Unlock the Flash to enable the flash control register access *************/
+  HAL_FLASH_Unlock();
+  if(CONFIG_COMMAND==pCanRxMsg->Data[0])
+  {
+    switch(pCanRxMsg->Data[1])
+    {
+      case 1:
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pCanID, pCanRxMsg->Data[2]) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+             User can add here some code to deal with this error */
+          //返回FLASH错误信息？
+        }
+        break;
+      case 2:
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pInVolCalPara00, (pCanRxMsg->Data[2]<<8)|pCanRxMsg->Data[3]) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+             User can add here some code to deal with this error */
+          //返回FLASH错误信息？
+        }
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pInVolCalPara00, (pCanRxMsg->Data[4]<<8)|pCanRxMsg->Data[5]) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+             User can add here some code to deal with this error */
+          //返回FLASH错误信息？
+        }
+        break;
+      case 3:
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pOutVolCalPara00, (pCanRxMsg->Data[2]<<8)|pCanRxMsg->Data[3]) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+             User can add here some code to deal with this error */
+          //返回FLASH错误信息？
+        }
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pOutVolCalPara00, (pCanRxMsg->Data[4]<<8)|pCanRxMsg->Data[5]) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+             User can add here some code to deal with this error */
+          //返回FLASH错误信息？
+        }
+        break;
+      case 4:
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pOutCurCalPara00, (pCanRxMsg->Data[2]<<8)|pCanRxMsg->Data[3]) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+             User can add here some code to deal with this error */
+          //返回FLASH错误信息？
+        }
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pOutCurCalPara00, (pCanRxMsg->Data[4]<<8)|pCanRxMsg->Data[5]) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+             User can add here some code to deal with this error */
+          //返回FLASH错误信息？
+        }
+        break;
+      case 5:
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pTemCalPara00, (pCanRxMsg->Data[2]<<8)|pCanRxMsg->Data[3]) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+             User can add here some code to deal with this error */
+          //返回FLASH错误信息？
+        }
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pTemCalPara00, (pCanRxMsg->Data[4]<<8)|pCanRxMsg->Data[5]) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+             User can add here some code to deal with this error */
+          //返回FLASH错误信息？
+        }
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
