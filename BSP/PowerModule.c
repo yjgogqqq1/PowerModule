@@ -1,9 +1,39 @@
 #include "PowerModule.h"
 #include "string.h"
 
+typedef struct
+{
+  uint32_t ErrorCode;
+  uint32_t RunTotalTime;
+} ErrorInfor;
 
-#define LOCAL_CAN_ID                    (0x07)
-#define DEVICE_ID                       (LOCAL_CAN_ID)
+ErrorInfor ErrorInforList[6];
+
+#define LOCAL_DEFAULT_ID                    (0x03)
+I2C_HandleTypeDef *pHi2c=NULL;
+unsigned int LocalId=LOCAL_DEFAULT_ID;
+void SetLocalId(unsigned int localId)
+{
+  LocalId=localId;
+}
+unsigned int GetLocalId()
+{
+  return LocalId;
+}                
+uint16_t InVolCalPara00           =0x00;
+uint16_t InVolCalPara01           =0x00;
+    
+uint16_t OutVolSampleCalPara00    =0x00;
+uint16_t OutVolSampleCalPara01    =0x00;
+                                      
+uint16_t OutCurCalPara00          =0x00;
+uint16_t OutCurCalPara01          =0x00;
+                                      
+uint16_t TemCalPara00             =0x00;
+uint16_t TemCalPara01             =0x00;
+                                      
+uint16_t OutVolCalPara00          =0x00;
+uint16_t OutVolCalPara01          =0x00;
 
 __IO uint16_t AdcAverage[4];
 uint16_t TargetOutputVoltage=0;
@@ -144,11 +174,11 @@ char ReceivedCanCommendFlag=0;
 
 uint32_t GetLocalCanId(void)
 {
-	return LOCAL_CAN_ID;
+	return LOCAL_DEFAULT_ID;
 }
 uint32_t GetDeviceId(void)
 {
-	return DEVICE_ID;
+	return LOCAL_DEFAULT_ID;
 }
 void CAN_ExInit(CAN_HandleTypeDef* hcan)
 {
@@ -176,7 +206,7 @@ void CAN_ExInit(CAN_HandleTypeDef* hcan)
   hcan->pTxMsg = &TxMessage;
   hcan->pRxMsg = &RxMessage;
   
-  hcan->pTxMsg->StdId=LOCAL_CAN_ID;
+  hcan->pTxMsg->StdId=LOCAL_DEFAULT_ID;
   hcan->pTxMsg->ExtId = 0x00;
   hcan->pTxMsg->RTR = CAN_RTR_DATA;
   hcan->pTxMsg->IDE = CAN_ID_STD;
@@ -191,8 +221,13 @@ void CAN_ExInit(CAN_HandleTypeDef* hcan)
 }
 void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan)
 {
-  if((POWER_DEVICE==((hcan->pRxMsg->Data[0]>>4)&0x0F))
-    &&((DEVICE_ID==hcan->pRxMsg->Data[1])
+  if((CONFIG_COMMAND==hcan->pRxMsg->Data[0])
+    &&(false==GetBanFlashOperateFlag()))
+  {
+    WriteDataToEeprom(pHi2c,hcan->pRxMsg);
+  }
+  else if((POWER_DEVICE==((hcan->pRxMsg->Data[0]>>4)&0x0F))
+    &&((LocalId==hcan->pRxMsg->Data[1])
     ||(BROADCAST_ID==hcan->pRxMsg->Data[1])))
   {
     if(RESET_FAULT_COMMAND==hcan->pRxMsg->Data[0])
@@ -284,111 +319,312 @@ void GetPowerModuleStatus(void)
 
 
 //FLASH
+/* Base address of the Flash sectors */
+#define ADDR_FLASH_PAGE_127   ((uint32_t)0x0801FC00) /* Base @ of Page 127, 1 Kbytes */
 
 #define FLASH_USER_START_ADDR   ADDR_FLASH_PAGE_127   /* Start @ of user Flash area */
 #define FLASH_USER_END_ADDR     ADDR_FLASH_PAGE_127 + FLASH_PAGE_SIZE   /* End @ of user Flash area */
 /* Private variables ---------------------------------------------------------*/
-uint32_t *const pPowerOnCounter=(uint32_t *)ADDR_FLASH_PAGE_127;
-uint32_t *const pCanID=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*1));
-uint32_t *const pInVolCalPara00=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*2));//Input Voltage Calibration Parameter 01;
-uint32_t *const pInVolCalPara01=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*3));//Input Voltage Calibration Parameter 01;
-
-uint32_t *const pOutVolCalPara00=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*4));//Output Voltage Calibration Parameter 01;
-uint32_t *const pOutVolCalPara01=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*5));//Output Voltage Calibration Parameter 01;
-
-uint32_t *const pOutCurCalPara00=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*6));//Output Current Calibration Parameter 01;
-uint32_t *const pOutCurCalPara01=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*7));//Output Current Calibration Parameter 01;
-
-uint32_t *const pTemCalPara00=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*8));//Temperature Calibration Parameter 01;
-uint32_t *const pTemCalPara01=(uint32_t *)(ADDR_FLASH_PAGE_127+(4*9));//Temperature Calibration Parameter 01;
-
-
+uint32_t *pPowerOnCounter=(uint32_t *)ADDR_FLASH_PAGE_127;
+unsigned char BanFlashOperateFlag=false;
+unsigned char GetBanFlashOperateFlag(void)
+{
+  return BanFlashOperateFlag;
+}
 uint32_t PAGEError = 0;
 __IO uint32_t MemoryProgramStatus = 0;
-void WriteCanDataToFlash(CanRxMsgTypeDef *pCanRxMsg)
+/*Variable used for Erase procedure*/
+static FLASH_EraseInitTypeDef EraseInitStruct;
+void PowerOnCounterInc(void)
 {
-  /* Unlock the Flash to enable the flash control register access *************/
-  HAL_FLASH_Unlock();
-  if(CONFIG_COMMAND==pCanRxMsg->Data[0])
+	unsigned int powerOnCounter=*pPowerOnCounter;
+	/*Variable used for Erase procedure*/
+	FLASH_EraseInitTypeDef EraseInitStruct;
+
+	EraseInitStruct.TypeErase   = FLASH_TYPEERASE_PAGES;
+	EraseInitStruct.PageAddress = FLASH_USER_START_ADDR;
+	EraseInitStruct.NbPages     = (FLASH_USER_END_ADDR - FLASH_USER_START_ADDR) / FLASH_PAGE_SIZE;
+	
+	if(3>*pPowerOnCounter)
   {
-    switch(pCanRxMsg->Data[1])
+		/* Unlock the Flash to enable the flash control register access *************/
+		HAL_FLASH_Unlock();
+		/* Fill EraseInit structure*/
+		if (HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError) != HAL_OK)
+		{
+			/* Error occurred while writing data in Flash memory.
+         User can add here some code to deal with this error */
+			_Error_Handler(__FILE__,__LINE__);
+		}
+    if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pPowerOnCounter, ++powerOnCounter) != HAL_OK)
     {
-      case 1:
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pCanID, pCanRxMsg->Data[2]) != HAL_OK)
-        {
-          /* Error occurred while writing data in Flash memory.
-             User can add here some code to deal with this error */
-          //返回FLASH错误信息？
-        }
-        break;
-      case 2:
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pInVolCalPara00, (pCanRxMsg->Data[2]<<8)|pCanRxMsg->Data[3]) != HAL_OK)
-        {
-          /* Error occurred while writing data in Flash memory.
-             User can add here some code to deal with this error */
-          //返回FLASH错误信息？
-        }
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pInVolCalPara00, (pCanRxMsg->Data[4]<<8)|pCanRxMsg->Data[5]) != HAL_OK)
-        {
-          /* Error occurred while writing data in Flash memory.
-             User can add here some code to deal with this error */
-          //返回FLASH错误信息？
-        }
-        break;
-      case 3:
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pOutVolCalPara00, (pCanRxMsg->Data[2]<<8)|pCanRxMsg->Data[3]) != HAL_OK)
-        {
-          /* Error occurred while writing data in Flash memory.
-             User can add here some code to deal with this error */
-          //返回FLASH错误信息？
-        }
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pOutVolCalPara00, (pCanRxMsg->Data[4]<<8)|pCanRxMsg->Data[5]) != HAL_OK)
-        {
-          /* Error occurred while writing data in Flash memory.
-             User can add here some code to deal with this error */
-          //返回FLASH错误信息？
-        }
-        break;
-      case 4:
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pOutCurCalPara00, (pCanRxMsg->Data[2]<<8)|pCanRxMsg->Data[3]) != HAL_OK)
-        {
-          /* Error occurred while writing data in Flash memory.
-             User can add here some code to deal with this error */
-          //返回FLASH错误信息？
-        }
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pOutCurCalPara00, (pCanRxMsg->Data[4]<<8)|pCanRxMsg->Data[5]) != HAL_OK)
-        {
-          /* Error occurred while writing data in Flash memory.
-             User can add here some code to deal with this error */
-          //返回FLASH错误信息？
-        }
-        break;
-      case 5:
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pTemCalPara00, (pCanRxMsg->Data[2]<<8)|pCanRxMsg->Data[3]) != HAL_OK)
-        {
-          /* Error occurred while writing data in Flash memory.
-             User can add here some code to deal with this error */
-          //返回FLASH错误信息？
-        }
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pTemCalPara00, (pCanRxMsg->Data[4]<<8)|pCanRxMsg->Data[5]) != HAL_OK)
-        {
-          /* Error occurred while writing data in Flash memory.
-             User can add here some code to deal with this error */
-          //返回FLASH错误信息？
-        }
-        break;
-      default:
-        break;
+      /* Error occurred while writing data in Flash memory.
+         User can add here some code to deal with this error */
+			_Error_Handler(__FILE__,__LINE__);
     }
+    HAL_FLASH_Lock();
+  }
+  else if(3<*pPowerOnCounter)		//防止FLASH默认值干扰
+	{
+		/* Unlock the Flash to enable the flash control register access *************/
+		HAL_FLASH_Unlock();
+		
+		if (HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError) != HAL_OK)
+		{
+			_Error_Handler(__FILE__,__LINE__);
+		}
+    if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)pPowerOnCounter, 1) != HAL_OK)
+    {
+      /* Error occurred while writing data in Flash memory.
+         User can add here some code to deal with this error */
+			_Error_Handler(__FILE__,__LINE__);
+    }
+    HAL_FLASH_Lock();
+	}
+	else
+  {
+    BanFlashOperateFlag=true;
+  }
+}
+//eeprom
+/* 
+ * EEPROM 2kb = 2048bit = 2048/8 B = 256 B
+ * 32 pages of 8 bytes each
+ *
+ * Device Address
+ * 1 0 1 0 A2 A1 A0 R/W
+ * 1 0 1 0 0  0  0  0 = 0XA0
+ * 1 0 1 0 0  0  0  1 = 0XA1 
+ */
+/* EEPROM Addresses defines */ 
+#define EEPROM_I2C_W_ADDRESS                         (0xA0)
+#define EEPROM_I2C_R_ADDRESS                         (0xA1)
+
+#define EEPROM_BASE_ADDRESS                 (0x0000)
+uint16_t LocalID_Addr                 =EEPROM_BASE_ADDRESS;
+uint16_t InVolCalPara00_Addr          =EEPROM_BASE_ADDRESS+(4*1);//Input Voltage Calibration Parameter 01;
+uint16_t InVolCalPara01_Addr          =EEPROM_BASE_ADDRESS+(4*2);//Input Voltage Calibration Parameter 01;
+    
+uint16_t OutVolSampleCalPara00_Addr   =EEPROM_BASE_ADDRESS+(4*3);//Output Voltage Sample Calibration Parameter 01;
+uint16_t OutVolSampleCalPara01_Addr   =EEPROM_BASE_ADDRESS+(4*4);//Output Voltage Sample Calibration Parameter 01;
+                                                            
+uint16_t OutCurCalPara00_Addr         =EEPROM_BASE_ADDRESS+(4*5);//Output Current Calibration Parameter 01;
+uint16_t OutCurCalPara01_Addr         =EEPROM_BASE_ADDRESS+(4*6);//Output Current Calibration Parameter 01;
+                                                            
+uint16_t TemCalPara00_Addr            =EEPROM_BASE_ADDRESS+(4*7);//Temperature Calibration Parameter 01;
+uint16_t TemCalPara01_Addr            =EEPROM_BASE_ADDRESS+(4*8);//Temperature Calibration Parameter 01;
+                                                            
+uint16_t OutVolCalPara00_Addr         =EEPROM_BASE_ADDRESS+(4*9);//Output Voltage Calibration Parameter 01;
+uint16_t OutVolCalPara01_Addr         =EEPROM_BASE_ADDRESS+(4*10);//Output Voltage Calibration Parameter 01;
+uint16_t ErrorInforList_Addr          =EEPROM_BASE_ADDRESS+(4*16);
+HAL_StatusTypeDef EepromWrite(I2C_HandleTypeDef *hi2c,uint16_t MemAddress, uint8_t *pData, uint16_t Size)
+{
+  return HAL_I2C_Mem_Write(hi2c,EEPROM_I2C_W_ADDRESS,MemAddress,I2C_MEMADD_SIZE_8BIT,pData,Size,2000);
+}
+
+HAL_StatusTypeDef EepromRead(I2C_HandleTypeDef *hi2c,uint16_t MemAddress, uint8_t *pData, uint16_t Size)
+{
+  return HAL_I2C_Mem_Read(hi2c,EEPROM_I2C_R_ADDRESS,MemAddress,I2C_MEMADD_SIZE_16BIT,pData,Size,2000);
+}
+
+void WriteDataToEeprom(I2C_HandleTypeDef *hi2c,CanRxMsgTypeDef *pCanRxMsg)
+{
+  switch(pCanRxMsg->Data[1])
+  {
+    case 1:       //读取最近几次故障
+      break;
+    case 2:       //清空最近几次故障
+      break;
+    case 3:       //读取最后一次出错时程序运行时间
+      break;
+    case 4:       //读取最后一次出错时程序运行时间
+      break;
+    case 5:       //读取本机ID
+      
+      break;
+    case 6:       //设置本机ID
+      LocalId=pCanRxMsg->Data[2];
+      if (EepromWrite(hi2c,LocalID_Addr,(uint8_t *)&LocalId,sizeof(LocalId)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      break;
+    case 7:       //设置输入电压采集参数
+      InVolCalPara00=(pCanRxMsg->Data[2]<<8) | pCanRxMsg->Data[3];
+      if (EepromWrite(hi2c,InVolCalPara00_Addr,(uint8_t *)&InVolCalPara00,sizeof(InVolCalPara00))!= HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      InVolCalPara01=(pCanRxMsg->Data[4]<<8) | pCanRxMsg->Data[5];
+      if (EepromWrite(hi2c,InVolCalPara01_Addr,(uint8_t *)&InVolCalPara01,sizeof(InVolCalPara01)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      break;
+    case 8:       //设置输出电压采集参数
+      OutVolSampleCalPara00=(pCanRxMsg->Data[2]<<8) | pCanRxMsg->Data[3];
+      if (EepromWrite(hi2c,OutVolSampleCalPara00_Addr,(uint8_t *)&OutVolSampleCalPara00,sizeof(OutVolSampleCalPara00)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      OutVolSampleCalPara01=(pCanRxMsg->Data[4]<<8) | pCanRxMsg->Data[5];
+      if (EepromWrite(hi2c,OutVolSampleCalPara01_Addr,(uint8_t *)&OutVolSampleCalPara01,sizeof(OutVolSampleCalPara01)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      break;
+    case 9:       //设置输出电流采集参数
+      OutCurCalPara00=(pCanRxMsg->Data[2]<<8) | pCanRxMsg->Data[3];
+      if (EepromWrite(hi2c,OutCurCalPara00_Addr,(uint8_t *)&OutCurCalPara00,sizeof(OutCurCalPara00)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      OutCurCalPara01=(pCanRxMsg->Data[4]<<8) | pCanRxMsg->Data[5];
+      if (EepromWrite(hi2c,OutCurCalPara01_Addr,(uint8_t *)&OutCurCalPara01,sizeof(OutCurCalPara01)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      break;
+    case 10:       //设置温度采集参数
+      TemCalPara00=(pCanRxMsg->Data[2]<<8) | pCanRxMsg->Data[3];
+      if (EepromWrite(hi2c,TemCalPara00_Addr,(uint8_t *)&TemCalPara00,sizeof(TemCalPara00)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      TemCalPara01=(pCanRxMsg->Data[4]<<8) | pCanRxMsg->Data[5];
+      if (EepromWrite(hi2c,TemCalPara01_Addr,(uint8_t *)&TemCalPara01,sizeof(TemCalPara01)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      break;
+    case 11:      //设置输出电压调节参数
+      OutVolCalPara00=(pCanRxMsg->Data[2]<<8) | pCanRxMsg->Data[3];
+      if (EepromWrite(hi2c,OutVolCalPara00_Addr,(uint8_t *)&OutVolCalPara00,sizeof(OutVolCalPara00)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      OutVolCalPara01=(pCanRxMsg->Data[4]<<8) | pCanRxMsg->Data[5];
+      if (EepromWrite(hi2c,OutVolCalPara01_Addr,(uint8_t *)&OutVolCalPara01,sizeof(OutVolCalPara00)) != HAL_OK)
+      {
+        /* Error occurred while writing data in Flash memory.
+           User can add here some code to deal with this error */
+        //返回FLASH错误信息？
+      }
+      break;
+    default:
+      break;
+  }
+}
+void ReadCriticalDataFromEeprom(I2C_HandleTypeDef *hi2c)
+{
+  pHi2c=hi2c;
+  //读取本地ID
+  while (EepromRead(hi2c,LocalID_Addr,(uint8_t *)&LocalId,sizeof(LocalId)) != HAL_OK)
+  {
+		//while(1);
+  }
+  
+  //读取输入电压采集参数
+  if (EepromRead(hi2c,InVolCalPara00_Addr,(uint8_t *)&InVolCalPara00,sizeof(InVolCalPara00))!= HAL_OK)
+  {
+		while(1);
+  }
+  if (EepromWrite(hi2c,InVolCalPara01_Addr,(uint8_t *)&InVolCalPara01,sizeof(InVolCalPara01)) != HAL_OK)
+  {
+  }
+
+  //读取输出电压采集参数
+  if (EepromRead(hi2c,OutVolSampleCalPara00_Addr,(uint8_t *)&OutVolSampleCalPara00,sizeof(OutVolSampleCalPara00)) != HAL_OK)
+  {
+		while(1);
+  }
+  if (EepromRead(hi2c,OutVolSampleCalPara01_Addr,(uint8_t *)&OutVolSampleCalPara01,sizeof(OutVolSampleCalPara01)) != HAL_OK)
+  {
+  }
+  
+  //读取输出电流采集参数
+  if (EepromRead(hi2c,OutCurCalPara00_Addr,(uint8_t *)&OutCurCalPara00,sizeof(OutCurCalPara00)) != HAL_OK)
+  {
+		while(1);
+  }
+
+  if (EepromRead(hi2c,OutCurCalPara01_Addr,(uint8_t *)&OutCurCalPara01,sizeof(OutCurCalPara01)) != HAL_OK)
+  {
+		while(1);
+  }
+  
+  //读取温度采集参数
+  if (EepromRead(hi2c,TemCalPara00_Addr,(uint8_t *)&TemCalPara00,sizeof(TemCalPara00)) != HAL_OK)
+  {
+		while(1);
+  }
+  if (EepromRead(hi2c,TemCalPara01_Addr,(uint8_t *)&TemCalPara01,sizeof(TemCalPara01)) != HAL_OK)
+  {
+		while(1);
+  }
+  
+  //读取输出电压调节参数
+  if (EepromRead(hi2c,OutVolCalPara00_Addr,(uint8_t *)&OutVolCalPara00,sizeof(OutVolCalPara00)) != HAL_OK)
+  {
+		while(1);
+  }
+  if (EepromRead(hi2c,OutVolCalPara01_Addr,(uint8_t *)&OutVolCalPara01,sizeof(OutVolCalPara00)) != HAL_OK)
+  {
+  }
+  
+  //读取近几次错误信息列表
+  if (EepromRead(hi2c,ErrorInforList_Addr,(uint8_t *)&ErrorInforList,sizeof(ErrorInforList)) != HAL_OK)
+  {
+		while(1);
   }
 }
 
-
-
-
-
-
-
+void NewErrorInforSave(unsigned char errorCode,unsigned int runTotalTime)
+{
+  for(int i=7;i>0;i--)
+  {
+    ErrorInforList[i]=ErrorInforList[i-1];
+  }
+  ErrorInforList[0].ErrorCode=errorCode;
+  ErrorInforList[0].RunTotalTime=runTotalTime;
+  EepromWrite(pHi2c,ErrorInforList_Addr,(uint8_t *)ErrorInforList,sizeof(ErrorInforList));
+}
+//程序运行时间计时
+#define TIME_BASE       (1*60*1000)       //1分钟
+unsigned int ProgramRunMinutes=0;
+unsigned int GetProgramRunMinutes(void)
+{
+  return ProgramRunMinutes;
+}
+void ProgramRunTiming(void)
+{
+  static unsigned short timeCounter=0;
+  timeCounter++;
+  if(timeCounter>=TIME_BASE)
+  {
+    ProgramRunMinutes++;
+  }
+}
 
 
 

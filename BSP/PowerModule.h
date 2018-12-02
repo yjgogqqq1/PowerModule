@@ -6,12 +6,16 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
+#include "main.h"
 #include "stm32f1xx.h"
 #include "stm32f1xx_hal_dma.h"
 #include "stm32f1xx_hal_adc.h"
 #include "stm32f1xx_hal_can.h"
-#include "can.h"
 #include "stm32f1xx_hal_gpio.h"
+#include "stm32f1xx_hal_i2c.h"
+#include "can.h"
+
+
 
 #define POWER_ON_COMMAND        (0x01)
 #define POWER_OFF_COMMAND       (0x00)
@@ -70,26 +74,12 @@
 #define POWER_ON_MAX_DELAY					(1000)
 #define SHORT_CIRCUIT_MAX_DELAY			(3000)
 #define MAX_SHORT_CIRCUIT_CHECK_DELAY     (100)
-//FLASH
-
-/* Base address of the Flash sectors */
-#define ADDR_FLASH_PAGE_127   ((uint32_t)0x0801FC00) /* Base @ of Page 127, 1 Kbytes */
 
 //eeprom
 #define EVAL_I2Cx_TIMEOUT_MAX                   3000
 #define I2C_OWN_ADDRESS                            0x0A              // stm32±¾»úI2CµØÖ·
 
-/* 
- * EEPROM 2kb = 2048bit = 2048/8 B = 256 B
- * 32 pages of 8 bytes each
- *
- * Device Address
- * 1 0 1 0 A2 A1 A0 R/W
- * 1 0 1 0 0  0  0  0 = 0XA0
- * 1 0 1 0 0  0  0  1 = 0XA1 
- */
-/* EEPROM Addresses defines */ 
-#define EEPROM_I2C_ADDRESS                         0xA0
+
 
 enum{false,true};
 typedef enum
@@ -147,8 +137,19 @@ uint32_t GetLocalCanId(void);
 uint32_t GetDeviceId(void);
 void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan);
 void CAN_ExInit(CAN_HandleTypeDef *hcan);
-
 void GetPowerModuleStatus(void);
+
+//flash
+
+unsigned char GetBanFlashOperateFlag(void);
+void PowerOnCounterInc(void);
+//eeprom
+HAL_StatusTypeDef EepromWrite(I2C_HandleTypeDef *hi2c,uint16_t MemAddress, uint8_t *pData, uint16_t Size);
+void ReadCriticalDataFromEeprom(I2C_HandleTypeDef *hi2c);
+void WriteDataToEeprom(I2C_HandleTypeDef *hi2c,CanRxMsgTypeDef *pCanRxMsg);
+void NewErrorInforSave(unsigned char errorCode,unsigned int runTotalTime);
+unsigned int GetProgramRunMinutes(void);
+void ProgramRunTiming(void);
 #ifdef __cplusplus
 }
 #endif

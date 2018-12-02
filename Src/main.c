@@ -47,7 +47,6 @@
 #include "i2c.h"
 /* USER CODE BEGIN Includes */
 #include "PowerModule.h"
-#include "eeprom.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -105,7 +104,8 @@ int main(void)
   MX_CAN1_Init();
   CAN_ExInit(&hcan1);
   MX_DAC_Init();
-	
+  PowerOnCounterInc();
+	ReadCriticalDataFromEeprom(&hi2c1);
   /* Infinite loop */
   while (1)
   {
@@ -153,6 +153,14 @@ int main(void)
         }
         HAL_Delay(100);
       }
+      static uint32_t preErrorCode=0;
+      //如果错误状态未发生改变，则不记录，如果发生改变则记录错误状态及程序运行时间
+      if(preErrorCode!=hcan1.pTxMsg->Data[4])
+      {
+        NewErrorInforSave(hcan1.pTxMsg->Data[4],GetProgramRunMinutes());
+        preErrorCode=hcan1.pTxMsg->Data[4];
+      }
+      
     }
     else 
     {

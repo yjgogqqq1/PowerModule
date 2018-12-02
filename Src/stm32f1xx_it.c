@@ -183,7 +183,7 @@ void SysTick_Handler(void)
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-	
+	ProgramRunTiming();
 	if(PowerOnDelayCounter>=POWER_ON_MAX_DELAY)
 	{
 		PowerOnDelayCounter= POWER_ON_MAX_DELAY;
