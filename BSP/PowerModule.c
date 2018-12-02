@@ -27,14 +27,14 @@ uint32_t ShortCircuitCheckDelayCounter=0;
 CanRxMsgTypeDef        ValidRxMessage={0,0};
 
 //OUTPUT
-void FaultLightControl(GPIO_PinState lightState)
+void FaultLightControl(LightStatus lightState)
 {
-  HAL_GPIO_WritePin(FAULT_LIGHT_GPIO_Port, FAULT_LIGHT_Pin, lightState);
+  HAL_GPIO_WritePin(FAULT_LIGHT_GPIO_Port, FAULT_LIGHT_Pin, (GPIO_PinState)lightState);
 }
 
 GPIO_PinState GetFaultLightStatus(void)
 {
-	HAL_GPIO_ReadPin(FAULT_LIGHT_GPIO_Port, FAULT_LIGHT_Pin);
+	return HAL_GPIO_ReadPin(FAULT_LIGHT_GPIO_Port, FAULT_LIGHT_Pin);
 }
 
 void WorkLightControl(GPIO_PinState lightState)
@@ -42,13 +42,13 @@ void WorkLightControl(GPIO_PinState lightState)
 	
   HAL_GPIO_WritePin(WORK_LIGHT_GPIO_Port, WORK_LIGHT_Pin, lightState);
 }
-void PowerControl(GPIO_PinState PowerState)
+void PowerControl(PowerStatus PowerState)
 {
-    HAL_GPIO_WritePin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin, PowerState);
+    HAL_GPIO_WritePin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin, (GPIO_PinState)PowerState);
 }
 GPIO_PinState GetPowerOutStatus(void)
 {
-	HAL_GPIO_ReadPin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin);
+	return HAL_GPIO_ReadPin(POWER_CONTROL_GPIO_Port, POWER_CONTROL_Pin);
 }
 
 //INPUT

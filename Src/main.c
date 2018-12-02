@@ -44,9 +44,10 @@
 #include "dac.h"
 #include "dma.h"
 #include "gpio.h"
-
+#include "i2c.h"
 /* USER CODE BEGIN Includes */
 #include "PowerModule.h"
+#include "eeprom.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -98,6 +99,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
+  MX_I2C1_Init();
   MX_ADC1_Init();
   ADC_ExInit(&hadc1);
   MX_CAN1_Init();

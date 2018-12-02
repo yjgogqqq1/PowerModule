@@ -75,10 +75,33 @@
 /* Base address of the Flash sectors */
 #define ADDR_FLASH_PAGE_127   ((uint32_t)0x0801FC00) /* Base @ of Page 127, 1 Kbytes */
 
+//eeprom
+#define EVAL_I2Cx_TIMEOUT_MAX                   3000
+#define I2C_OWN_ADDRESS                            0x0A              // stm32±¾»úI2CµØÖ·
+
+/* 
+ * EEPROM 2kb = 2048bit = 2048/8 B = 256 B
+ * 32 pages of 8 bytes each
+ *
+ * Device Address
+ * 1 0 1 0 A2 A1 A0 R/W
+ * 1 0 1 0 0  0  0  0 = 0XA0
+ * 1 0 1 0 0  0  0  1 = 0XA1 
+ */
+/* EEPROM Addresses defines */ 
+#define EEPROM_I2C_ADDRESS                         0xA0
 
 enum{false,true};
-enum{POWER_ON,POWER_OFF};
-enum{LED_OFF,LED_ON};
+typedef enum
+{
+  POWER_ON,
+  POWER_OFF
+} PowerStatus;
+typedef enum
+{
+  LED_OFF,
+  LED_ON
+}LightStatus;
 
 
 
@@ -106,9 +129,9 @@ extern CanRxMsgTypeDef        ValidRxMessage;
 
 
 char  GetPowerStatus(void);
-void FaultLightControl(GPIO_PinState lightState);
+void FaultLightControl(LightStatus lightState);
 GPIO_PinState GetFaultLightStatus(void);
-void PowerControl(GPIO_PinState PowerState);
+void PowerControl(PowerStatus PowerState);
 GPIO_PinState GetPowerOutStatus(void);
 
 //DAC
