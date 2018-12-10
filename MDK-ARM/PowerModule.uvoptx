@@ -157,41 +157,9 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>544</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134240028</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\BSP\PowerModule.c</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\PowerModule\../BSP/PowerModule.c\544</Expression>
-        </Bp>
-        <Bp>
-          <Number>1</Number>
-          <Type>0</Type>
-          <LineNumber>542</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134240014</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\BSP\PowerModule.c</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\PowerModule\../BSP/PowerModule.c\542</Expression>
-        </Bp>
-        <Bp>
-          <Number>2</Number>
-          <Type>0</Type>
           <LineNumber>2621</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134232474</Address>
+          <EnabledFlag>0</EnabledFlag>
+          <Address>134231434</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -203,11 +171,11 @@
           <Expression>\\PowerModule\../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c\2621</Expression>
         </Bp>
         <Bp>
-          <Number>3</Number>
+          <Number>1</Number>
           <Type>0</Type>
           <LineNumber>5070</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134237878</Address>
+          <EnabledFlag>0</EnabledFlag>
+          <Address>134236834</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -219,42 +187,42 @@
           <Expression>\\PowerModule\../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c\5070</Expression>
         </Bp>
         <Bp>
-          <Number>4</Number>
+          <Number>2</Number>
           <Type>0</Type>
-          <LineNumber>5079</LineNumber>
+          <LineNumber>213</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134237906</Address>
+          <Address>134238988</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
           <SizeOfObject>0</SizeOfObject>
           <BreakByAccess>0</BreakByAccess>
           <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\Drivers\STM32F1xx_HAL_Driver\Src\stm32f1xx_hal_i2c.c</Filename>
+          <Filename>..\BSP\PowerModule.c</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\PowerModule\../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c\5079</Expression>
+          <Expression>\\PowerModule\../BSP/PowerModule.c\213</Expression>
         </Bp>
       </Breakpoint>
       <WatchWindow1>
         <Ww>
           <count>0</count>
           <WinNumber>1</WinNumber>
-          <ItemText>pPowerOnCounter</ItemText>
+          <ItemText>tU32</ItemText>
         </Ww>
         <Ww>
           <count>1</count>
           <WinNumber>1</WinNumber>
-          <ItemText>counter</ItemText>
+          <ItemText>InVolCalPara00</ItemText>
         </Ww>
         <Ww>
           <count>2</count>
           <WinNumber>1</WinNumber>
-          <ItemText>LocalID_Addr</ItemText>
+          <ItemText>ret</ItemText>
         </Ww>
         <Ww>
           <count>3</count>
           <WinNumber>1</WinNumber>
-          <ItemText>ret</ItemText>
+          <ItemText>ErrorInforList</ItemText>
         </Ww>
       </WatchWindow1>
       <Tracepoint>
