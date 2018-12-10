@@ -539,15 +539,13 @@ void ReadCriticalDataFromEeprom(I2C_HandleTypeDef *hi2c)
 {
   pHi2c=hi2c;
   //读取本地ID
-  while (EepromRead(hi2c,LocalID_Addr,(uint8_t *)&LocalId,sizeof(LocalId)) != HAL_OK)
+  if ( EepromRead(hi2c,LocalID_Addr,(uint8_t *)&LocalId,sizeof(LocalId))!= HAL_OK)
   {
-		//while(1);
   }
   
   //读取输入电压采集参数
   if (EepromRead(hi2c,InVolCalPara00_Addr,(uint8_t *)&InVolCalPara00,sizeof(InVolCalPara00))!= HAL_OK)
   {
-		while(1);
   }
   if (EepromWrite(hi2c,InVolCalPara01_Addr,(uint8_t *)&InVolCalPara01,sizeof(InVolCalPara01)) != HAL_OK)
   {
