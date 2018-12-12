@@ -47,6 +47,7 @@
 #include "i2c.h"
 /* USER CODE BEGIN Includes */
 #include "PowerModule.h"
+#include<string.h>
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -144,14 +145,13 @@ int main(void)
                         |(InputOverVoltageFlag<<1)|(!GetPowerOutStatus());
 
       /*##-- Start the Transmission process ###############################*/
-      if(false==FaultSendStopFlag)
+      if((false==FaultSendStopFlag)&&(0==HAL_GetTick()%1000))
       {
         if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
         {
           /* Transmition Error */
           //Error_Handler();
         }
-        HAL_Delay(100);
       }
       static uint32_t preErrorCode=0;
       //如果错误状态未发生改变，则不记录，如果发生改变则记录错误状态及程序运行时间
@@ -246,6 +246,17 @@ int main(void)
 				}
 			}
     }
+		if(true==GetReadErrorInforEnableFlag())
+		{
+			SetReadErrorInforEnableFlag(false);
+			memcpy(hcan1.pTxMsg->Data,(const void *)(GetErrorInforListBaseAddr()+hcan1.pRxMsg->Data[2]),8);
+			/*##-- Start the Transmission process ###############################*/
+			if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+			{
+				/* Transmition Error */
+				//Error_Handler();
+			}
+		}
   }
 
 }

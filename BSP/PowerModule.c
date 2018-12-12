@@ -1,14 +1,12 @@
 #include "PowerModule.h"
 #include "string.h"
 
-typedef struct
-{
-  uint32_t ErrorCode;
-  uint32_t RunTotalTime;
-} ErrorInfor;
 
 ErrorInfor ErrorInforList[10];
-
+ErrorInfor *GetErrorInforListBaseAddr(void)
+{
+	return ErrorInforList;
+}
 #define LOCAL_DEFAULT_ID                    (0x03)
 I2C_HandleTypeDef *pHi2c=NULL;
 unsigned int LocalId=LOCAL_DEFAULT_ID;
@@ -35,11 +33,11 @@ short TemCalParaB             =1821;
 short OutVolCalParaA          =-1146;
 short OutVolCalParaB          =5305;
 
-__IO uint16_t AdcAverage[4];
-uint16_t TargetOutputVoltage=0;
-uint16_t CurInputVoltage=0;
-uint16_t CurOutputVoltage=0;
-uint16_t CurOutputCurrent=0;
+__IO unsigned short AdcAverage[4];
+unsigned short TargetOutputVoltage=0;
+unsigned short CurInputVoltage=0;
+unsigned short CurOutputVoltage=0;
+unsigned short CurOutputCurrent=0;
 int16_t CurModuleTemperature=0;
 char InputOverVoltageFlag=0;
 char InputUnderVoltageFlag=0;
@@ -70,46 +68,50 @@ CanRxMsgTypeDef        ValidRxMessage={0,0};
 #define EEPROM_I2C_R_ADDRESS                         (0xA1)
 
 #define EEPROM_BASE_ADDRESS                 (0x0000)
-uint16_t LocalID_Addr                 =EEPROM_BASE_ADDRESS;
-uint16_t InVolCalParaA_Addr          =EEPROM_BASE_ADDRESS+(4*1);//Input Voltage Calibration Parameter 01;
-uint16_t InVolCalParaB_Addr          =EEPROM_BASE_ADDRESS+(4*2);//Input Voltage Calibration Parameter 01;
+unsigned short LocalID_Addr                 =EEPROM_BASE_ADDRESS;
+unsigned short InVolCalParaA_Addr          =EEPROM_BASE_ADDRESS+(4*1);//Input Voltage Calibration Parameter 01;
+unsigned short InVolCalParaB_Addr          =EEPROM_BASE_ADDRESS+(4*2);//Input Voltage Calibration Parameter 01;
     
-uint16_t OutVolSampleCalParaA_Addr   =EEPROM_BASE_ADDRESS+(4*3);//Output Voltage Sample Calibration Parameter 01;
-uint16_t OutVolSampleCalParaB_Addr   =EEPROM_BASE_ADDRESS+(4*4);//Output Voltage Sample Calibration Parameter 01;
+unsigned short OutVolSampleCalParaA_Addr   =EEPROM_BASE_ADDRESS+(4*3);//Output Voltage Sample Calibration Parameter 01;
+unsigned short OutVolSampleCalParaB_Addr   =EEPROM_BASE_ADDRESS+(4*4);//Output Voltage Sample Calibration Parameter 01;
                                                             
-uint16_t OutCurCalParaA_Addr         =EEPROM_BASE_ADDRESS+(4*5);//Output Current Calibration Parameter 01;
-uint16_t OutCurCalParaB_Addr         =EEPROM_BASE_ADDRESS+(4*6);//Output Current Calibration Parameter 01;
+unsigned short OutCurCalParaA_Addr         =EEPROM_BASE_ADDRESS+(4*5);//Output Current Calibration Parameter 01;
+unsigned short OutCurCalParaB_Addr         =EEPROM_BASE_ADDRESS+(4*6);//Output Current Calibration Parameter 01;
                                                             
-uint16_t TemCalParaA_Addr            =EEPROM_BASE_ADDRESS+(4*7);//Temperature Calibration Parameter 01;
-uint16_t TemCalParaB_Addr            =EEPROM_BASE_ADDRESS+(4*8);//Temperature Calibration Parameter 01;
+unsigned short TemCalParaA_Addr            =EEPROM_BASE_ADDRESS+(4*7);//Temperature Calibration Parameter 01;
+unsigned short TemCalParaB_Addr            =EEPROM_BASE_ADDRESS+(4*8);//Temperature Calibration Parameter 01;
                                                             
-uint16_t OutVolCalParaA_Addr         =EEPROM_BASE_ADDRESS+(4*9);//Output Voltage Calibration Parameter 01;
-uint16_t OutVolCalParaB_Addr         =EEPROM_BASE_ADDRESS+(4*10);//Output Voltage Calibration Parameter 01;
-uint16_t ErrorInforList_Addr          =EEPROM_BASE_ADDRESS+(4*16);
-HAL_StatusTypeDef EepromWrite(I2C_HandleTypeDef *hi2c,uint16_t MemAddress, uint8_t *pData, uint16_t Size)
+unsigned short OutVolCalParaA_Addr         =EEPROM_BASE_ADDRESS+(4*9);//Output Voltage Calibration Parameter 01;
+unsigned short OutVolCalParaB_Addr         =EEPROM_BASE_ADDRESS+(4*10);//Output Voltage Calibration Parameter 01;
+unsigned short ErrorInforList_Addr         =EEPROM_BASE_ADDRESS+(4*16);
+HAL_StatusTypeDef EepromWrite(I2C_HandleTypeDef *hi2c,unsigned short MemAddress, uint8_t *pData, unsigned short Size)
 {
+  HAL_Delay(5);
   return HAL_I2C_Mem_Write(hi2c,EEPROM_I2C_W_ADDRESS,MemAddress,I2C_MEMADD_SIZE_8BIT,pData,Size,2000);
 }
 
-HAL_StatusTypeDef EepromRead(I2C_HandleTypeDef *hi2c,uint16_t MemAddress, uint8_t *pData, uint16_t Size)
+HAL_StatusTypeDef EepromRead(I2C_HandleTypeDef *hi2c,unsigned short MemAddress, uint8_t *pData, unsigned short Size)
 {
+  HAL_Delay(5);
   return HAL_I2C_Mem_Read(hi2c,EEPROM_I2C_R_ADDRESS,MemAddress,I2C_MEMADD_SIZE_8BIT,pData,Size,2000);
 }
-
+char ReadErrorInforEnableFlag=0;
+void SetReadErrorInforEnableFlag(char readErrorInforEnableFlag)
+{
+	ReadErrorInforEnableFlag=readErrorInforEnableFlag;
+}
+char GetReadErrorInforEnableFlag()
+{
+	return ReadErrorInforEnableFlag;
+}
 void WriteDataToEeprom(I2C_HandleTypeDef *hi2c,CanRxMsgTypeDef *pCanRxMsg)
 {
   switch(pCanRxMsg->Data[1])
   {
     case 1:       //读取最近几次故障
-      break;
-    case 2:       //清空最近几次故障
-      break;
-    case 3:       //读取最后一次出错时程序运行时间
-      break;
-    case 4:       //读取最后一次出错时程序运行时间
+			SetReadErrorInforEnableFlag(1);
       break;
     case 5:       //读取本机ID
-      
       break;
     case 6:       //设置本机ID
       LocalId=pCanRxMsg->Data[2];
@@ -209,66 +211,75 @@ void ReadCriticalDataFromEeprom(I2C_HandleTypeDef *hi2c)
   unsigned int tU32=1;
   unsigned short t16=0;
   pHi2c=hi2c;
+  
   //读取本地ID
-  if((EepromRead(hi2c,LocalID_Addr,(uint8_t *)&tU32,sizeof(tU32))== HAL_OK)&&((0xFFFFFFFF!=tU32)))
+  if((EepromRead(hi2c,LocalID_Addr,(uint8_t *)&tU32,sizeof(tU32))== HAL_OK)&&((0!=~tU32)))
   {
       LocalId=tU32;
   }
   
   //读取输入电压采集参数
-  if ((EepromRead(hi2c,InVolCalParaA_Addr,(uint8_t *)&t16,sizeof(t16))== HAL_OK)&&(0xFFFF!=(unsigned short)t16))
+  if ((EepromRead(hi2c,InVolCalParaA_Addr,(uint8_t *)&t16,sizeof(t16))== HAL_OK)&&(0!=~t16))
   {
     InVolCalParaA=t16;
   }
-  if ((EepromWrite(hi2c,InVolCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=(unsigned short)t16))
+  if ((EepromRead(hi2c,InVolCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK)&&(0!=~t16))
   {
     InVolCalParaB=t16;
   }
 
   //读取输出电压采集参数
-  if ((EepromRead(hi2c,OutVolSampleCalParaA_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=(unsigned short)t16))
+  if ((EepromRead(hi2c,OutVolSampleCalParaA_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK)&&(0!=~t16))
   {
 		OutVolSampleCalParaA=t16;
   }
-  if ((EepromRead(hi2c,OutVolSampleCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=(unsigned short)t16))
+  if ((EepromRead(hi2c,OutVolSampleCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK)&&(0!=~t16))
   {
     OutVolSampleCalParaB=t16;
   }
   
   //读取输出电流采集参数
-  if (EepromRead(hi2c,OutCurCalParaA_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0xFFFF!=(unsigned short)t16))
+  if (EepromRead(hi2c,OutCurCalParaA_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
   {
 		OutCurCalParaA=t16;
   }
 
-  if (EepromRead(hi2c,OutCurCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0xFFFF!=(unsigned short)t16))
+  if (EepromRead(hi2c,OutCurCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
   {
 		OutCurCalParaB=t16;
   }
   
   //读取温度采集参数
-  if (EepromRead(hi2c,TemCalParaA_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0xFFFF!=(unsigned short)t16))
+  if (EepromRead(hi2c,TemCalParaA_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
   {
 		TemCalParaA=t16;
   }
-  if (EepromRead(hi2c,TemCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0xFFFF!=(unsigned short)t16))
+  if (EepromRead(hi2c,TemCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
   {
 		TemCalParaB=t16;
   }
   
   //读取输出电压调节参数
-  if (EepromRead(hi2c,OutVolCalParaA_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0xFFFF!=(unsigned short)t16))
+  if (EepromRead(hi2c,OutVolCalParaA_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
   {
 		OutVolCalParaA=t16;
   }
-  if (EepromRead(hi2c,OutVolCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0xFFFF!=(unsigned short)t16))
+  if (EepromRead(hi2c,OutVolCalParaB_Addr,(uint8_t *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
   {
     OutVolCalParaB=t16;
   }
   
   //读取近几次错误信息列表
-  if (EepromRead(hi2c,ErrorInforList_Addr,(uint8_t *)&ErrorInforList,sizeof(ErrorInforList)) == HAL_OK)
+  ErrorInfor errorInforList[10];
+  for(int i=0;i<10;i++)
   {
+    if (EepromRead(hi2c,ErrorInforList_Addr+i*8,(uint8_t *)&errorInforList[i],sizeof(errorInforList[i])) == HAL_OK)
+    {
+      if((0!=~errorInforList[i].ErrorCode)&&(0!=~errorInforList[i].RunTotalTime))
+      {
+        ErrorInforList[i]=errorInforList[i];
+      }
+    }
   }
 }
 
@@ -280,7 +291,10 @@ void NewErrorInforSave(unsigned char errorCode,unsigned int runTotalTime)
   }
   ErrorInforList[0].ErrorCode=errorCode;
   ErrorInforList[0].RunTotalTime=runTotalTime;
-  EepromWrite(pHi2c,ErrorInforList_Addr,(uint8_t *)ErrorInforList,sizeof(ErrorInforList));
+  for(int i=0;i<10;i++)
+  {
+    EepromWrite(pHi2c,ErrorInforList_Addr+i*8,(uint8_t *)&ErrorInforList[i],sizeof(ErrorInforList[i]));
+  }
 }
 //OUTPUT
 void FaultLightControl(LightStatus lightState)
@@ -325,25 +339,25 @@ char  GetPowerStatus(void)
   * @retval None
   */
 #define COMPUTATION_DIGITAL_12BITS_TO_INPUT_VOLTAGE(ADC_DATA)                        \
-(((uint16_t)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f))<600?0:((uint16_t)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f)))
+(((unsigned short)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f))<600?0:((unsigned short)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f)))
 
 #define COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_CURRENT(ADC_DATA)                        \
-  ((uint16_t)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*1000.0f*0.02f*10.0f))
+  ((unsigned short)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*1000.0f*0.02f*10.0f))
 
 #define COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_VOLTAGE_SAMPLE(ADC_DATA)                        \
-  ((uint16_t)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*46.8f/1.8f*10.0f))
+  ((unsigned short)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*46.8f/1.8f*10.0f))
 unsigned short ComputeDigital12BitsToInputVoltage(unsigned short adcData)
 {
-  return (((uint16_t)((InVolCalParaA*adcData * VDD_APPLI / RANGE_12BITS+InVolCalParaB)*10))<600)?0:((uint16_t)((InVolCalParaA*(adcData * VDD_APPLI / RANGE_12BITS)+InVolCalParaB)*10));
+  return (((unsigned short)((InVolCalParaA*adcData * VDD_APPLI / RANGE_12BITS+InVolCalParaB)*10))<600)?0:((unsigned short)((InVolCalParaA*(adcData * VDD_APPLI / RANGE_12BITS)+InVolCalParaB)*10));
 }
 unsigned short ComputeDigital12bitsToOutputCurrent(unsigned short adcData)
 {
-  return ((uint16_t)((OutCurCalParaA*adcData*VDD_APPLI/RANGE_12BITS+OutCurCalParaB)*10));
+  return ((unsigned short)((OutCurCalParaA*adcData*VDD_APPLI/RANGE_12BITS+OutCurCalParaB)*10));
 }
 
 unsigned short ComputeDigital12bitsToOutputVoltageSample(unsigned short adcData)
 {
-  return ((uint16_t)((OutVolSampleCalParaA*adcData * VDD_APPLI / RANGE_12BITS+OutVolSampleCalParaB)*10));
+  return ((unsigned short)((OutVolSampleCalParaA*adcData * VDD_APPLI / RANGE_12BITS+OutVolSampleCalParaB)*10));
 }
 void ADC_ExInit(ADC_HandleTypeDef* hadc)
 {
@@ -366,11 +380,11 @@ void ADC_ExInit(ADC_HandleTypeDef* hadc)
     Error_Handler();
   }
 }
-uint16_t GetOutputCurrent(void)
+unsigned short GetOutputCurrent(void)
 {
   return ComputeDigital12bitsToOutputCurrent(AdcAverage[0]);//COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_CURRENT(AdcAverage[0]);
 }
-uint16_t GetInputVoltage(void)
+unsigned short GetInputVoltage(void)
 {
   return ComputeDigital12BitsToInputVoltage(AdcAverage[1]);//COMPUTATION_DIGITAL_12BITS_TO_INPUT_VOLTAGE(AdcAverage[1]);
 }
@@ -379,13 +393,13 @@ int16_t GetTemperature(void)
 {
   return (TemCalParaA*(AdcAverage[2]*VDD_APPLI/RANGE_12BITS)+TemCalParaB);
 }
-uint16_t GetOutputVoltage(void)
+unsigned short GetOutputVoltage(void)
 {
   return ComputeDigital12bitsToOutputVoltageSample(AdcAverage[3]);//COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_VOLTAGE_SAMPLE(AdcAverage[3]);
 }
 //DAC
 
-uint16_t OutputVoltageToDigital12Bits(float targetVoltage)
+unsigned short OutputVoltageToDigital12Bits(float targetVoltage)
 {
 	float tempValue=0.0f;
   if(MAX_OUTPUT_V<targetVoltage)

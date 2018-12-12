@@ -93,6 +93,11 @@ typedef enum
   LED_ON
 }LightStatus;
 
+typedef struct
+{
+  uint32_t ErrorCode;
+  uint32_t RunTotalTime;
+} ErrorInfor;
 
 
 extern char ReceivedCanCommendFlag;
@@ -117,7 +122,7 @@ extern char MaybeShortCircuitFlag;
 extern uint32_t ShortCircuitCheckDelayCounter;
 extern CanRxMsgTypeDef        ValidRxMessage;
 
-
+ErrorInfor *GetErrorInforListBaseAddr(void);
 char  GetPowerStatus(void);
 void FaultLightControl(LightStatus lightState);
 GPIO_PinState GetFaultLightStatus(void);
@@ -144,6 +149,8 @@ void GetPowerModuleStatus(void);
 unsigned char GetBanFlashOperateFlag(void);
 void PowerOnCounterInc(void);
 //eeprom
+void SetReadErrorInforEnableFlag(char readErrorInforEnableFlag);
+char GetReadErrorInforEnableFlag(void);
 HAL_StatusTypeDef EepromWrite(I2C_HandleTypeDef *hi2c,uint16_t MemAddress, uint8_t *pData, uint16_t Size);
 void ReadCriticalDataFromEeprom(I2C_HandleTypeDef *hi2c);
 void WriteDataToEeprom(I2C_HandleTypeDef *hi2c,CanRxMsgTypeDef *pCanRxMsg);

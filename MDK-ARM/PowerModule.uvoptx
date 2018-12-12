@@ -157,25 +157,9 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>2621</LineNumber>
-          <EnabledFlag>0</EnabledFlag>
-          <Address>134231434</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\Drivers\STM32F1xx_HAL_Driver\Src\stm32f1xx_hal_i2c.c</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\PowerModule\../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c\2621</Expression>
-        </Bp>
-        <Bp>
-          <Number>1</Number>
-          <Type>0</Type>
           <LineNumber>5070</LineNumber>
           <EnabledFlag>0</EnabledFlag>
-          <Address>134236834</Address>
+          <Address>134236890</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -185,22 +169,6 @@
           <Filename>..\Drivers\STM32F1xx_HAL_Driver\Src\stm32f1xx_hal_i2c.c</Filename>
           <ExecCommand></ExecCommand>
           <Expression>\\PowerModule\../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c\5070</Expression>
-        </Bp>
-        <Bp>
-          <Number>2</Number>
-          <Type>0</Type>
-          <LineNumber>213</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134238988</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\BSP\PowerModule.c</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\PowerModule\../BSP/PowerModule.c\213</Expression>
         </Bp>
       </Breakpoint>
       <WatchWindow1>
@@ -212,7 +180,7 @@
         <Ww>
           <count>1</count>
           <WinNumber>1</WinNumber>
-          <ItemText>InVolCalPara00</ItemText>
+          <ItemText>InVolCalPara00,0x0A</ItemText>
         </Ww>
         <Ww>
           <count>2</count>
