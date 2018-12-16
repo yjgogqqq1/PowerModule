@@ -51,7 +51,7 @@
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
-
+unsigned int ErrorOccurTick=0;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
@@ -99,14 +99,17 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_I2C1_Init();
+  #ifdef USE_EEPROM
+    MX_I2C1_Init();
+  #endif
   MX_ADC1_Init();
   ADC_ExInit(&hadc1);
   MX_CAN1_Init();
   CAN_ExInit(&hcan1);
-  MX_DAC_Init();
-  PowerOnCounterInc();
-	ReadCriticalDataFromEeprom(&hi2c1);
+  #ifdef USE_EEPROM
+    PowerOnCounterInc();
+	  ReadCriticalDataFromEeprom(&hi2c1);
+  #endif
   /* Infinite loop */
   while (1)
   {
@@ -126,44 +129,66 @@ int main(void)
     HAL_ADC_PollForConversion(&hadc1, 1);
     GetPowerModuleStatus();
 		
-    if((1==InputOverVoltageFlag)||(1==InputUnderVoltageFlag)||(1==OutputOverVoltageFlag)
-      ||(1==OutputOverCurrentFlag)||(1==OverTemperatureFlag)||(1==ShortCircuitFlag))
+    if((1==InputOverVoltageFlag)||(1==InputUnderVoltageFlag)
+			||(1==OutputOverVolFlag[1])||(1==OutputOverCurFlag[1])
+			||(1==OutputOverVolFlag[2])||(1==OutputOverCurFlag[2])
+			||(1==OutputOverVolFlag[3])||(1==OutputOverCurFlag[3])
+			||(1==OutputOverVolFlag[4])||(1==OutputOverCurFlag[4])
+			||(1==OverTemperatureFlag))
     {
-      //处理
-      PowerControl(POWER_OFF);
-      FaultLightControl(LED_OFF);
-      /* Set the data to be tranmitted */
-      hcan1.pTxMsg->Data[0]=ERROR_COMMAND;//CurOutputVoltage&0xff;//输出电压
-      hcan1.pTxMsg->Data[1]=GetDeviceId();//CurOutputVoltage>>8;
-      hcan1.pTxMsg->Data[2]=0x00;//CurOutputCurrent&0xff;//输出电流
-      hcan1.pTxMsg->Data[3]=0x00;//CurOutputCurrent>>8;
-      hcan1.pTxMsg->Data[4]=0x00;
-      hcan1.pTxMsg->Data[5]=0x00;
-      //过温|输出短路|输出过压|输入欠压|输入过压|运行状态;//输出电流
-      hcan1.pTxMsg->Data[4]=(OverTemperatureFlag<<5)|(ShortCircuitFlag<<4)
-                        |(OutputOverVoltageFlag<<3)|(InputUnderVoltageFlag<<2)
-                        |(InputOverVoltageFlag<<1)|(!GetPowerOutStatus());
-
-      /*##-- Start the Transmission process ###############################*/
-      if((false==FaultSendStopFlag)&&(0==HAL_GetTick()%1000))
+			if((false==FaultSendStopFlag)&&((0==ErrorOccurTick)||(0==(HAL_GetTick()-ErrorOccurTick)%30000)))
       {
-        if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+				ErrorOccurTick=HAL_GetTick();
+				/* Set the data to be tranmitted */
+				hcan1.pTxMsg->Data[0]=ERROR_COMMAND;//CurOutputVoltage&0xff;//输出电压
+				hcan1.pTxMsg->Data[1]=GetDeviceId();//CurOutputVoltage>>8;
+				hcan1.pTxMsg->Data[2]=0x00;//CurOutputCurrent&0xff;//输出电流
+				hcan1.pTxMsg->Data[3]=0x00;//CurOutputCurrent>>8;
+				hcan1.pTxMsg->Data[4]=0x00;
+				hcan1.pTxMsg->Data[5]=0x00;
+				//过温|输出短路|输出过压|输入欠压|输入过压|运行状态;//输出电流
+				hcan1.pTxMsg->Data[4]=(OverTemperatureFlag<<5)
+													|(InputUnderVoltageFlag<<2)
+													|(InputOverVoltageFlag<<1)|(!GetPowerOutStatus());
+				//处理
+				if((1==InputOverVoltageFlag)||(1==InputUnderVoltageFlag)||(1==OverTemperatureFlag))
+				{
+					PowerControl(0xFF,POWER_OFF);
+					hcan1.pTxMsg->Data[7]=0;
+					/*##-- Start the Transmission process ###############################*/
+					if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+					{
+					}
+				}
+				else
+				{
+					for(int i=1;i<5;i++)
+					{
+						if((1==OutputOverVolFlag[i])||(1==OutputOverCurFlag[i]))
+						{
+							hcan1.pTxMsg->Data[4]|=(OutputOverCurFlag[i]<<4)|(OutputOverVolFlag[i]<<3);
+							hcan1.pTxMsg->Data[7]=i;
+							/*##-- Start the Transmission process ###############################*/
+							HAL_CAN_Transmit(&hcan1, 10);
+						}
+					}
+				}
+				FaultLightControl(LED_OFF);
+      }
+      #ifdef USE_EEPROM
+        static uint32_t preErrorCode=0;
+        //如果错误状态未发生改变，则不记录，如果发生改变则记录错误状态及程序运行时间
+        if(preErrorCode!=hcan1.pTxMsg->Data[4])
         {
-          /* Transmition Error */
-          //Error_Handler();
+          NewErrorInforSave(hcan1.pTxMsg->Data[4],GetProgramRunMinutes());
+          preErrorCode=hcan1.pTxMsg->Data[4];
         }
-      }
-      static uint32_t preErrorCode=0;
-      //如果错误状态未发生改变，则不记录，如果发生改变则记录错误状态及程序运行时间
-      if(preErrorCode!=hcan1.pTxMsg->Data[4])
-      {
-        NewErrorInforSave(hcan1.pTxMsg->Data[4],GetProgramRunMinutes());
-        preErrorCode=hcan1.pTxMsg->Data[4];
-      }
-      
+      #endif
     }
     else 
     {
+      //错误恢复，发送错误状态清零指令
+			ErrorOccurTick=0;
       if(LED_OFF==GetFaultLightStatus())
       {
         /* Set the data to be tranmitted */
@@ -181,49 +206,19 @@ int main(void)
 					//Error_Handler();
 				}
       }
+      //为下次出错发送指令做准备
       FaultSendStopFlag=false;
-      
+      //错误解决，打开指示灯，标识设备工作；
       FaultLightControl(LED_ON);
       
       if((POWER_ON_COMMAND==ValidRxMessage.Data[0]))
       {
-        PowerControl(POWER_ON);
+        PowerControl(ValidRxMessage.Data[7],POWER_ON);
       }
       else if((POWER_OFF_COMMAND==ValidRxMessage.Data[0]))
       {
-        //处理
-        PowerControl(POWER_OFF);
+        PowerControl(ValidRxMessage.Data[7],POWER_OFF);
       }
-    }
-    
-    
-
-		
-    if(1==OutputOverCurrentFlag)
-    {
-      //DAC降压输出由硬件实现，软件只置标志位
-    }
-    else
-    {
-      //DAC正常输出
-      if((GetDeviceId()==ValidRxMessage.Data[1])&&(POWER_ON_COMMAND==ValidRxMessage.Data[0]))   //？？？？？需不需要添加故障标志位判断，有故障时不输出
-      {
-        /*##-3- Set DAC Channel1 DHR register ######################################*/
-				if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, OutputVoltageToDigital12Bits((ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[3])) != HAL_OK)
-				{
-					/* Setting value Error */
-					Error_Handler();
-				}
-				 /*##-4- Enable DAC Channel1 ################################################*/
-				if (HAL_DAC_Start(&hdac, DAC_CHANNEL_1) != HAL_OK)
-				{
-					/* Start Error */
-					Error_Handler();
-				}
-      }
-      else
-      {
-      } 
     }
 		if(true==ReceivedCanCommendFlag)
     {
@@ -233,8 +228,8 @@ int main(void)
 				/* Set the data to be tranmitted */
 				hcan1.pTxMsg->Data[0]=FEEDBACK_COMMAND;//CurOutputVoltage&0xff;//输出电压
 				hcan1.pTxMsg->Data[1]=GetDeviceId();//CurOutputVoltage>>8;
-				hcan1.pTxMsg->Data[2]=CurOutputVoltage>>8;//CurOutputCurrent&0xff;//输出电流
-				hcan1.pTxMsg->Data[3]=CurOutputVoltage&0xff;//CurOutputCurrent>>8;
+				hcan1.pTxMsg->Data[2]=CurOutputVoltage[ValidRxMessage.Data[0]]>>8;//CurOutputCurrent&0xff;//输出电流
+				hcan1.pTxMsg->Data[3]=CurOutputVoltage[ValidRxMessage.Data[0]]&0xff;//CurOutputCurrent>>8;
 				hcan1.pTxMsg->Data[4]=0x00;
 				hcan1.pTxMsg->Data[5]=0x00;
 				hcan1.pTxMsg->Data[6]=0x00;
@@ -246,17 +241,24 @@ int main(void)
 				}
 			}
     }
-		if(true==GetReadErrorInforEnableFlag())
-		{
-			SetReadErrorInforEnableFlag(false);
-			memcpy(hcan1.pTxMsg->Data,(const void *)(GetErrorInforListBaseAddr()+hcan1.pRxMsg->Data[2]),8);
-			/*##-- Start the Transmission process ###############################*/
-			if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
-			{
-				/* Transmition Error */
-				//Error_Handler();
-			}
-		}
+		#ifdef USE_EEPROM
+      if(true==GetReceivedDebugCommandFlag())
+      {
+        SetReceivedDebugCommandFlag(false);
+        WriteDataToEeprom(pHi2c,hcan->pRxMsg);
+      }
+      if(true==GetReadErrorInforEnableFlag())
+      {
+        SetReadErrorInforEnableFlag(false);
+        memcpy(hcan1.pTxMsg->Data,(const void *)(GetErrorInforListBaseAddr()+hcan1.pRxMsg->Data[2]),8);
+        /*##-- Start the Transmission process ###############################*/
+        if (HAL_CAN_Transmit(&hcan1, 10) != HAL_OK)
+        {
+          /* Transmition Error */
+          //Error_Handler();
+        }
+      }
+    #endif
   }
 
 }
@@ -319,67 +321,6 @@ void SystemClock_Config(void)
   /* SysTick_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
-//void SystemClock_Config(void)
-//{
-
-//  RCC_OscInitTypeDef RCC_OscInitStruct;
-//  RCC_ClkInitTypeDef RCC_ClkInitStruct;
-//  RCC_PeriphCLKInitTypeDef PeriphClkInit;
-
-//    /**Initializes the CPU, AHB and APB busses clocks 
-//    */
-//  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-//  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
-//  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV5;
-//  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-//  RCC_OscInitStruct.Prediv1Source = RCC_PREDIV1_SOURCE_PLL2;
-//  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-//  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-//  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
-//  RCC_OscInitStruct.PLL2.PLL2State = RCC_PLL2_ON;
-//  RCC_OscInitStruct.PLL2.PLL2MUL = RCC_PLL2_MUL8;
-//  RCC_OscInitStruct.PLL2.HSEPrediv2Value = RCC_HSE_PREDIV2_DIV5;
-//  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-//  {
-//    _Error_Handler(__FILE__, __LINE__);
-//  }
-
-//    /**Initializes the CPU, AHB and APB busses clocks 
-//    */
-//  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-//                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-//  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-//  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-//  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-//  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-
-//  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
-//  {
-//    _Error_Handler(__FILE__, __LINE__);
-//  }
-
-//  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
-//  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
-//  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-//  {
-//    _Error_Handler(__FILE__, __LINE__);
-//  }
-
-//    /**Configure the Systick interrupt time 
-//    */
-//  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
-
-//    /**Configure the Systick 
-//    */
-//  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
-
-//    /**Configure the Systick interrupt time 
-//    */
-//  __HAL_RCC_PLLI2S_ENABLE();
-
-//  /* SysTick_IRQn interrupt configuration */
-//  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
-//}
 
 /* USER CODE BEGIN 4 */
 

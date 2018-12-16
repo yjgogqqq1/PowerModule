@@ -31,8 +31,8 @@
 
 
 #define VDD_APPLI                      (2.5f)   /* Value of analog voltage supply Vdda (unit: V) */
-#define EXTERNAL_VDD_APPLI             ((uint32_t) 6000)   
-#define RANGE_12BITS                   ((uint32_t) 4095)   /* Max value with a full range of 12 bits */
+#define EXTERNAL_VDD_APPLI             ((unsigned int) 6000)   
+#define RANGE_12BITS                   ((unsigned int) 4095)   /* Max value with a full range of 12 bits */
 //can
 
 #define HOST_CAN_ID                     (0x01)
@@ -95,51 +95,52 @@ typedef enum
 
 typedef struct
 {
-  uint32_t ErrorCode;
-  uint32_t RunTotalTime;
+  unsigned int ErrorCode;
+  unsigned int RunTotalTime;
 } ErrorInfor;
 
 
 extern char ReceivedCanCommendFlag;
-extern __IO uint16_t AdcAverage[4];
-extern uint16_t TargetOutputVoltage;
-extern uint16_t CurInputVoltage;
-extern uint16_t CurOutputVoltage;
-extern uint16_t CurOutputCurrent;
-extern int16_t CurModuleTemperature;
+extern __IO unsigned short AdcAverage[10];
+extern unsigned short TargetOutputVoltage;
+extern unsigned short CurInputVoltage;
+extern unsigned short CurOutputVoltage[5];
+extern unsigned short CurOutputCurrent[5];
+extern short CurModuleTemperature;
 extern char InputOverVoltageFlag;
 extern char InputUnderVoltageFlag;
-extern char OutputOverVoltageFlag;
-extern char OutputOverCurrentFlag;
+extern char OutputOverVolFlag[5];
+extern char OutputOverCurFlag[5];
 extern char ShortCircuitFlag;
 extern char OverTemperatureFlag;
 extern char FaultSendStopFlag;
 extern char PowerStatusFlag;
-extern uint32_t DacOutputValue;
-extern uint32_t PowerOnDelayCounter;
-extern uint32_t ShortCircuitRecoveryDelayCounter;
+extern unsigned int PowerOnDelayCounter;
+extern unsigned int ShortCircuitRecoveryDelayCounter;
 extern char MaybeShortCircuitFlag;
-extern uint32_t ShortCircuitCheckDelayCounter;
+extern unsigned int ShortCircuitCheckDelayCounter;
 extern CanRxMsgTypeDef        ValidRxMessage;
 
 ErrorInfor *GetErrorInforListBaseAddr(void);
 char  GetPowerStatus(void);
 void FaultLightControl(LightStatus lightState);
 GPIO_PinState GetFaultLightStatus(void);
-void PowerControl(PowerStatus PowerState);
+void PowerControl(unsigned char index,PowerStatus powerStatus);
 GPIO_PinState GetPowerOutStatus(void);
 
 //DAC
-uint16_t OutputVoltageToDigital12Bits(float targetVoltage);
+unsigned short OutputVoltageToDigital12Bits(unsigned short targetVoltage);
 //ADC
 void ADC_ExInit(ADC_HandleTypeDef* hadc);
-uint16_t GetOutputCurrent(void);
-uint16_t GetInputVoltage(void);
-int16_t GetTemperature(void);
-uint16_t GetOutputVoltage(void);
+unsigned short GetOpVolSampling(unsigned char channel);
+unsigned short GetOpCurSampling(unsigned char channel);
+unsigned short GetInputVoltage(void);
+short GetTemperature(void);
 //CAN
-uint32_t GetLocalCanId(void);
-uint32_t GetDeviceId(void);
+unsigned int GetLocalCanId(void);
+unsigned int GetDeviceId(void);
+void SetReceivedDebugCommandFlag(unsigned char receivedDebugCommandFlag);
+unsigned char GetReceivedDebugCommandFlag(void);
 void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan);
 void CAN_ExInit(CAN_HandleTypeDef *hcan);
 void GetPowerModuleStatus(void);
@@ -151,9 +152,9 @@ void PowerOnCounterInc(void);
 //eeprom
 void SetReadErrorInforEnableFlag(char readErrorInforEnableFlag);
 char GetReadErrorInforEnableFlag(void);
-HAL_StatusTypeDef EepromWrite(I2C_HandleTypeDef *hi2c,uint16_t MemAddress, uint8_t *pData, uint16_t Size);
+HAL_StatusTypeDef EepromWrite(I2C_HandleTypeDef *hi2c,unsigned short MemAddress, uint8_t *pData, unsigned short Size);
 void ReadCriticalDataFromEeprom(I2C_HandleTypeDef *hi2c);
-void WriteDataToEeprom(I2C_HandleTypeDef *hi2c,CanRxMsgTypeDef *pCanRxMsg);
+void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan);
 void NewErrorInforSave(unsigned char errorCode,unsigned int runTotalTime);
 unsigned int GetProgramRunMinutes(void);
 void ProgramRunTiming(void);
