@@ -159,7 +159,7 @@
           <Type>0</Type>
           <LineNumber>5070</LineNumber>
           <EnabledFlag>0</EnabledFlag>
-          <Address>134236834</Address>
+          <Address>134236890</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -180,7 +180,7 @@
         <Ww>
           <count>1</count>
           <WinNumber>1</WinNumber>
-          <ItemText>InVolCalPara00</ItemText>
+          <ItemText>InVolCalPara00,0x0A</ItemText>
         </Ww>
         <Ww>
           <count>2</count>

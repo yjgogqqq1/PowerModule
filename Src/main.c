@@ -129,7 +129,7 @@ int main(void)
     if((1==InputOverVoltageFlag)||(1==InputUnderVoltageFlag)||(1==OutputOverVoltageFlag)
       ||(1==OutputOverCurrentFlag)||(1==OverTemperatureFlag)||(1==ShortCircuitFlag))
     {
-			if((false==FaultSendStopFlag)&&((0==ErrorOccurTick)||(0==(HAL_GetTick()-ErrorOccurTick)%30000)))
+			if((false==FaultSendStopFlag)&&((0==ErrorOccurTick)||(0==(HAL_GetTick()+1-ErrorOccurTick)%30000)))
       {
         ErrorOccurTick=HAL_GetTick();
         //¥¶¿Ì

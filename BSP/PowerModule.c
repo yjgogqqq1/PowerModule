@@ -97,14 +97,16 @@ unsigned short TemCalParaB_Addr            =EEPROM_BASE_ADDRESS+(4*8);//Temperat
                                                             
 unsigned short OutVolCalParaA_Addr         =EEPROM_BASE_ADDRESS+(4*9);//Output Voltage Calibration Parameter 01;
 unsigned short OutVolCalParaB_Addr         =EEPROM_BASE_ADDRESS+(4*10);//Output Voltage Calibration Parameter 01;
-unsigned short ErrorInforList_Addr          =EEPROM_BASE_ADDRESS+(4*16);
+unsigned short ErrorInforList_Addr         =EEPROM_BASE_ADDRESS+(4*16);
 HAL_StatusTypeDef EepromWrite(I2C_HandleTypeDef *hi2c,unsigned short MemAddress, unsigned char *pData, unsigned short Size)
 {
+  HAL_Delay(5);
   return HAL_I2C_Mem_Write(hi2c,EEPROM_I2C_W_ADDRESS,MemAddress,I2C_MEMADD_SIZE_8BIT,pData,Size,2000);
 }
 
 HAL_StatusTypeDef EepromRead(I2C_HandleTypeDef *hi2c,unsigned short MemAddress, unsigned char *pData, unsigned short Size)
 {
+  HAL_Delay(5);
   return HAL_I2C_Mem_Read(hi2c,EEPROM_I2C_R_ADDRESS,MemAddress,I2C_MEMADD_SIZE_8BIT,pData,Size,2000);
 }
 char ReadErrorInforEnableFlag=0;
@@ -131,7 +133,6 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       break;
     case 7:       //设置输入电压采集参数
@@ -140,14 +141,12 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       InVolCalParaB=(pHcan->pRxMsg->Data[4]<<8) | pHcan->pRxMsg->Data[5];
       if (EepromWrite(hi2c,InVolCalParaB_Addr,(unsigned char *)&InVolCalParaB,sizeof(InVolCalParaB)) != HAL_OK)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       break;
     case 8:       //设置输出电压采集参数
@@ -156,14 +155,12 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       OutVolSampleCalParaB=(pHcan->pRxMsg->Data[4]<<8) | pHcan->pRxMsg->Data[5];
       if (EepromWrite(hi2c,OutVolSampleCalParaB_Addr,(unsigned char *)&OutVolSampleCalParaB,sizeof(OutVolSampleCalParaB)) != HAL_OK)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       break;
     case 9:       //设置输出电流采集参数
@@ -172,14 +169,12 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       OutCurCalParaB=(pHcan->pRxMsg->Data[4]<<8) | pHcan->pRxMsg->Data[5];
       if (EepromWrite(hi2c,OutCurCalParaB_Addr,(unsigned char *)&OutCurCalParaB,sizeof(OutCurCalParaB)) != HAL_OK)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       break;
     case 10:       //设置温度采集参数
@@ -188,14 +183,12 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       TemCalParaB=(pHcan->pRxMsg->Data[4]<<8) | pHcan->pRxMsg->Data[5];
       if (EepromWrite(hi2c,TemCalParaB_Addr,(unsigned char *)&TemCalParaB,sizeof(TemCalParaB)) != HAL_OK)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       break;
     case 11:      //设置输出电压调节参数
@@ -204,14 +197,12 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
       OutVolCalParaB=(pHcan->pRxMsg->Data[4]<<8) | pHcan->pRxMsg->Data[5];
       if (EepromWrite(hi2c,OutVolCalParaB_Addr,(unsigned char *)&OutVolCalParaB,sizeof(OutVolCalParaB)) != HAL_OK)
       {
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
-        //返回FLASH错误信息？
       }
     case 12:    //读取输入电压AD值
         pHcan->pTxMsg->Data[0]=AdcAverage[IP_VOL_SAMPLING_INDEX]>>8;
@@ -335,15 +326,15 @@ void ReadCriticalDataFromEeprom(I2C_HandleTypeDef *hi2c)
   
   //读取近几次错误信息列表
 	ErrorInfor errorInforList[10];
-  if (EepromRead(hi2c,ErrorInforList_Addr,(unsigned char *)&errorInforList,sizeof(errorInforList)) == HAL_OK)
+  for(int i=0;i<10;i++)
   {
-		for(int i=0;i<10;i++)
-		{
-			if((0!=~errorInforList[i].ErrorCode)&&(0!=~errorInforList[i].RunTotalTime))
-			{
-				ErrorInforList[i]=errorInforList[i];
-			}
-		}
+    if (EepromRead(hi2c,ErrorInforList_Addr+i*8,(uint8_t *)&errorInforList[i],sizeof(errorInforList[i])) == HAL_OK)
+    {
+      if((0!=~errorInforList[i].ErrorCode)&&(0!=~errorInforList[i].RunTotalTime))
+      {
+        ErrorInforList[i]=errorInforList[i];
+      }
+    }
   }
 }
 
@@ -355,7 +346,10 @@ void NewErrorInforSave(unsigned char errorCode,unsigned int runTotalTime)
   }
   ErrorInforList[0].ErrorCode=errorCode;
   ErrorInforList[0].RunTotalTime=runTotalTime;
-  EepromWrite(pHi2c,ErrorInforList_Addr,(unsigned char *)ErrorInforList,sizeof(ErrorInforList));
+  for(int i=0;i<10;i++)
+  {
+    EepromWrite(pHi2c,ErrorInforList_Addr+i*8,(uint8_t *)&ErrorInforList[i],sizeof(ErrorInforList[i]));
+  }
 }
 //OUTPUT
 void FaultLightControl(LightStatus lightState)
