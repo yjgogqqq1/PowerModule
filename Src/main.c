@@ -200,10 +200,7 @@ int main(void)
         PowerControl(POWER_OFF);
       }
     }
-    
-    
 
-		
     if(1==OutputOverCurrentFlag)
     {
       //DAC降压输出由硬件实现，软件只置标志位
