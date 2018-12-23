@@ -15,7 +15,7 @@
 #include "stm32f1xx_hal_i2c.h"
 #include "can.h"
 
-
+#define USE_EEPROM
 
 #define POWER_ON_COMMAND        (0x01)
 #define POWER_OFF_COMMAND       (0x00)

@@ -107,7 +107,7 @@ int main(void)
   CAN_ExInit(&hcan1);
   MX_DAC_Init();
   #ifdef USE_EEPROM
-    PowerOnCounterInc();
+    //PowerOnCounterInc();
 	  ReadCriticalDataFromEeprom(&hi2c1);
   #endif
   /* Infinite loop */
@@ -252,7 +252,7 @@ int main(void)
       if(true==GetReceivedDebugCommandFlag())
       {
         SetReceivedDebugCommandFlag(false);
-        WriteDataToEeprom(pHi2c,hcan->pRxMsg);
+        DebugConmmandProcess(&hi2c1,&hcan1);
       }
       if(true==GetReadErrorInforEnableFlag())
       {

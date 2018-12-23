@@ -20,24 +20,29 @@ unsigned int GetLocalId()
 }                
 // #define IP_VOL_PARA_KA        ()
 // #define IP_VOL_PARA_KB        ()
-short InVolCalParaA           =4800;
-short InVolCalParaB           =480;
+short InVolCalParaA           =1487;
+#define IP_VOL_CAL_PARA_A_COEFFICIENT (1.0f/1000.0f)
+short InVolCalParaB           =1059;
 // #define OP_VOL_SAMPLE_PARA_KA ()    
 // #define OP_VOL_SAMPLE_PARA_KB ()
-short OutVolSampleCalParaA    =260;
+short OutVolSampleCalParaA    =1587;
+#define OP_VOL_SAMPLE_PARA_A_COEFFICIENT (1.0f/10000.0f)
 short OutVolSampleCalParaB    =0;
 // #define OP_CUR_PARA_KA        () 
 // #define OP_CUR_PARA_KB        ()                                    
-short OutCurCalParaA          =200;
+short OutCurCalParaA          =1221;
+#define OP_CUR_CAL_PARA_A_COEFFICIENT (1.0f/10000.0f)
 short OutCurCalParaB          =0;
 // #define TEM_PARA_KA           ()   
 // #define TEM_PARA_KB           ()                                     
-short TemCalParaA             =-1786;
+short TemCalParaA             =1090;
+#define TEM_CAL_PARA_A_COEFFICIENT (1.0f/1000.0f)
 short TemCalParaB             =1821;
 #define OP_VOL_PARA_KA       (10000.0f)   
 #define OP_VOL_PARA_KB       (1.0f)                                  
-short OutVolCalParaA          =10000;
-short OutVolCalParaB          =0;
+short OutVolCalParaA          =1877;
+#define OP_VOL_CAL_PARA_A_COEFFICIENT (1.0f/100.0f)
+short OutVolCalParaB          =8689;
 
 __IO unsigned short AdcAverage[4];
 #define OP_CUR_SAMPLING_INDEX       (0)
@@ -123,17 +128,26 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
   switch(pHcan->pRxMsg->Data[1])
   {
     case 1:       //读取最近几次故障
-			SetReadErrorInforEnableFlag(1);
+			  SetReadErrorInforEnableFlag(1);
       break;
     case 5:       //读取本机ID
+        pHcan->pTxMsg->Data[0]=LocalId;
+				pHcan->pTxMsg->Data[1]=0x00;
+				pHcan->pTxMsg->Data[2]=0x00;
+				pHcan->pTxMsg->Data[3]=0x00;
+				pHcan->pTxMsg->Data[4]=0x00;
+				pHcan->pTxMsg->Data[5]=0x00;
+				pHcan->pTxMsg->Data[6]=0x00;
+				/*##-- Start the Transmission process ###############################*/
+				HAL_CAN_Transmit(pHcan, 10);
       break;
     case 6:       //设置本机ID
-      LocalId=pHcan->pRxMsg->Data[2];
-      if (EepromWrite(hi2c,LocalID_Addr,(unsigned char *)&LocalId,sizeof(LocalId)) != HAL_OK)
-      {
-        /* Error occurred while writing data in Flash memory.
-           User can add here some code to deal with this error */
-      }
+        LocalId=pHcan->pRxMsg->Data[2];
+        if (EepromWrite(hi2c,LocalID_Addr,(unsigned char *)&LocalId,sizeof(LocalId)) != HAL_OK)
+        {
+          /* Error occurred while writing data in Flash memory.
+            User can add here some code to deal with this error */
+        }
       break;
     case 7:       //设置输入电压采集参数
       InVolCalParaA=(pHcan->pRxMsg->Data[2]<<8) | pHcan->pRxMsg->Data[3];
@@ -149,7 +163,7 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
            User can add here some code to deal with this error */
       }
       break;
-    case 8:       //设置输出电压采集参数
+    case 8:       //设置输出采样电压参数
       OutVolSampleCalParaA=(pHcan->pRxMsg->Data[2]<<8) | pHcan->pRxMsg->Data[3];
       if (EepromWrite(hi2c,OutVolSampleCalParaA_Addr,(unsigned char *)&OutVolSampleCalParaA,sizeof(OutVolSampleCalParaA)) != HAL_OK)
       {
@@ -177,7 +191,7 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
            User can add here some code to deal with this error */
       }
       break;
-    case 10:       //设置温度采集参数
+    case 0x0A:       //设置温度采集参数
       TemCalParaA=(pHcan->pRxMsg->Data[2]<<8) | pHcan->pRxMsg->Data[3];
       if (EepromWrite(hi2c,TemCalParaA_Addr,(unsigned char *)&TemCalParaA,sizeof(TemCalParaA)) != HAL_OK)
       {
@@ -191,7 +205,7 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
            User can add here some code to deal with this error */
       }
       break;
-    case 11:      //设置输出电压调节参数
+    case 0x0B:      //设置输出电压调节参数
       OutVolCalParaA=(pHcan->pRxMsg->Data[2]<<8) | pHcan->pRxMsg->Data[3];
       if (EepromWrite(hi2c,OutVolCalParaA_Addr,(unsigned char *)&OutVolCalParaA,sizeof(OutVolCalParaA)) != HAL_OK)
       {
@@ -204,7 +218,7 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
         /* Error occurred while writing data in Flash memory.
            User can add here some code to deal with this error */
       }
-    case 12:    //读取输入电压AD值
+    case 0x0C:    //读取输入电压AD值
         pHcan->pTxMsg->Data[0]=AdcAverage[IP_VOL_SAMPLING_INDEX]>>8;
 				pHcan->pTxMsg->Data[1]=AdcAverage[IP_VOL_SAMPLING_INDEX]&0xff;
 				pHcan->pTxMsg->Data[2]=0x00;
@@ -215,17 +229,18 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
 				/*##-- Start the Transmission process ###############################*/
 				HAL_CAN_Transmit(pHcan, 10);
       break;
-    case 13:    //读取输出电压AD值
+    case 0x0D:    //读取输出采样电压AD值
         pHcan->pTxMsg->Data[0]=AdcAverage[OP_VOL_SAMPLING_INDEX]>>8;
 				pHcan->pTxMsg->Data[1]=AdcAverage[OP_VOL_SAMPLING_INDEX]&0xff;
 				pHcan->pTxMsg->Data[2]=0x00;
 				pHcan->pTxMsg->Data[3]=0x00;
+				pHcan->pTxMsg->Data[4]=0x00;
 				pHcan->pTxMsg->Data[5]=0x00;
 				pHcan->pTxMsg->Data[6]=0x00;
 				/*##-- Start the Transmission process ###############################*/
 				HAL_CAN_Transmit(pHcan, 10);
       break;
-    case 14:    //读取输出电流AD值
+    case 0x0E:    //读取输出电流AD值
         pHcan->pTxMsg->Data[0]=AdcAverage[OP_CUR_SAMPLING_INDEX]>>8;
 				pHcan->pTxMsg->Data[1]=AdcAverage[OP_CUR_SAMPLING_INDEX]&0xff;
 				pHcan->pTxMsg->Data[2]=0x00;
@@ -236,7 +251,7 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
 				/*##-- Start the Transmission process ###############################*/
 				HAL_CAN_Transmit(pHcan, 10);
       break;
-    case 15:    //读取温度AD值
+    case 0x0F:    //读取温度AD值
         pHcan->pTxMsg->Data[0]=AdcAverage[TEMPERATURE_SAMPLING_INDEX]>>8;
 				pHcan->pTxMsg->Data[1]=AdcAverage[TEMPERATURE_SAMPLING_INDEX]&0xff;
 				pHcan->pTxMsg->Data[2]=0x00;
@@ -247,9 +262,65 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
 				/*##-- Start the Transmission process ###############################*/
 				HAL_CAN_Transmit(pHcan, 10);
       break;
-    case 16:    //读取运算后的DA值
+    case 0x10:    //读取运算后的DA值
         pHcan->pTxMsg->Data[0]=GetDacOutputValue()>>8;
 				pHcan->pTxMsg->Data[1]=GetDacOutputValue()&0xff;
+				pHcan->pTxMsg->Data[2]=0x00;
+				pHcan->pTxMsg->Data[3]=0x00;
+				pHcan->pTxMsg->Data[4]=0x00;
+				pHcan->pTxMsg->Data[5]=0x00;
+				pHcan->pTxMsg->Data[6]=0x00;
+				/*##-- Start the Transmission process ###############################*/
+				HAL_CAN_Transmit(pHcan, 10);
+      break;
+		
+		case 0x11:    //读取计算输入电压值
+        pHcan->pTxMsg->Data[0]=CurInputVoltage>>8;
+				pHcan->pTxMsg->Data[1]=CurInputVoltage&0xff;
+				pHcan->pTxMsg->Data[2]=0x00;
+				pHcan->pTxMsg->Data[3]=0x00;
+				pHcan->pTxMsg->Data[4]=0x00;
+				pHcan->pTxMsg->Data[5]=0x00;
+				pHcan->pTxMsg->Data[6]=0x00;
+				/*##-- Start the Transmission process ###############################*/
+				HAL_CAN_Transmit(pHcan, 10);
+      break;
+		case 0x12:    //读取计算输出采样电压值
+        pHcan->pTxMsg->Data[0]=CurOutputVoltage>>8;
+				pHcan->pTxMsg->Data[1]=CurOutputVoltage&0xff;
+				pHcan->pTxMsg->Data[2]=0x00;
+				pHcan->pTxMsg->Data[3]=0x00;
+				pHcan->pTxMsg->Data[4]=0x00;
+				pHcan->pTxMsg->Data[5]=0x00;
+				pHcan->pTxMsg->Data[6]=0x00;
+				/*##-- Start the Transmission process ###############################*/
+				HAL_CAN_Transmit(pHcan, 10);
+      break;
+		case 0x13:    //读取计算输入电压值
+        pHcan->pTxMsg->Data[0]=CurModuleTemperature>>8;
+				pHcan->pTxMsg->Data[1]=CurModuleTemperature&0xff;
+				pHcan->pTxMsg->Data[2]=0x00;
+				pHcan->pTxMsg->Data[3]=0x00;
+				pHcan->pTxMsg->Data[4]=0x00;
+				pHcan->pTxMsg->Data[5]=0x00;
+				pHcan->pTxMsg->Data[6]=0x00;
+				/*##-- Start the Transmission process ###############################*/
+				HAL_CAN_Transmit(pHcan, 10);
+      break;
+		case 0x14:    //读取计算输入电压值
+        pHcan->pTxMsg->Data[0]=CurOutputCurrent>>8;
+				pHcan->pTxMsg->Data[1]=CurOutputCurrent&0xff;
+				pHcan->pTxMsg->Data[2]=0x00;
+				pHcan->pTxMsg->Data[3]=0x00;
+				pHcan->pTxMsg->Data[4]=0x00;
+				pHcan->pTxMsg->Data[5]=0x00;
+				pHcan->pTxMsg->Data[6]=0x00;
+				/*##-- Start the Transmission process ###############################*/
+				HAL_CAN_Transmit(pHcan, 10);
+      break;
+		case 0x15:    //读取计算输入电压值
+        pHcan->pTxMsg->Data[0]=DacOutputValue>>8;
+				pHcan->pTxMsg->Data[1]=DacOutputValue&0xff;
 				pHcan->pTxMsg->Data[2]=0x00;
 				pHcan->pTxMsg->Data[3]=0x00;
 				pHcan->pTxMsg->Data[4]=0x00;
@@ -278,7 +349,7 @@ void ReadCriticalDataFromEeprom(I2C_HandleTypeDef *hi2c)
   {
     InVolCalParaA=t16;
   }
-  if ((EepromWrite(hi2c,InVolCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0!=~t16))
+  if ((EepromRead(hi2c,InVolCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0!=~t16))
   {
     InVolCalParaB=t16;
   }
@@ -394,17 +465,17 @@ char  GetPowerStatus(void)
   * @retval None
   */
 #define COMPUTATION_DIGITAL_12BITS_TO_INPUT_VOLTAGE(ADC_DATA)                        \
-((( (ADC_DATA) * 1.487f)+1059.0f)<600?0:((unsigned short)(( (ADC_DATA) * 1.487f)+1059.0f)))//(((unsigned short)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f))<600?0:((unsigned short)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f)))
+(((InVolCalParaA*IP_VOL_CAL_PARA_A_COEFFICIENT*(ADC_DATA))+InVolCalParaB)<600?0:((InVolCalParaA*IP_VOL_CAL_PARA_A_COEFFICIENT*(ADC_DATA))+InVolCalParaB)//(((unsigned short)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f))<600?0:((unsigned short)((( (ADC_DATA) * VDD_APPLI / RANGE_12BITS *4.0f)+0.4f)*120.0f*10.0f)))
 
 #define COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_CURRENT(ADC_DATA)                        \
-  ((unsigned short)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*1000.0f*0.02f*10.0f))
+  ((unsigned short)(OutCurCalParaA*OP_CUR_CAL_PARA_A_COEFFICIENT*ADC_DATA+OutCurCalParaB))//((unsigned short)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*1000.0f*0.02f*10.0f))
 
 #define COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_VOLTAGE_SAMPLE(ADC_DATA)                        \
-  ((unsigned short)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*46.8f/1.8f*10.0f))
+ ((unsigned short)(OutVolSampleCalParaA*OP_VOL_SAMPLE_PARA_A_COEFFICIENT*(ADC_DATA)+OutVolSampleCalParaB))// ((unsigned short)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*46.8f/1.8f*10.0f))
 unsigned short ComputeDigital12BitsToInputVoltage(unsigned short adcData)
 {
   #ifdef USE_EEPROM
-  return (((unsigned short)(InVolCalParaA*adcData * VDD_APPLI / RANGE_12BITS+InVolCalParaB))<600)?0:((unsigned short)((InVolCalParaA*(adcData * VDD_APPLI / RANGE_12BITS)+InVolCalParaB)*10));
+  return (((unsigned short)(InVolCalParaA*IP_VOL_CAL_PARA_A_COEFFICIENT*adcData + InVolCalParaB))<600)?0:((unsigned short)(InVolCalParaA*IP_VOL_CAL_PARA_A_COEFFICIENT*adcData + InVolCalParaB));
   #else
   return COMPUTATION_DIGITAL_12BITS_TO_INPUT_VOLTAGE(adcData);
   #endif
@@ -412,7 +483,7 @@ unsigned short ComputeDigital12BitsToInputVoltage(unsigned short adcData)
 unsigned short ComputeDigital12bitsToOutputCurrent(unsigned short adcData)
 {
   #ifdef USE_EEPROM
-  return ((unsigned short)(OutCurCalParaA*adcData*VDD_APPLI/RANGE_12BITS+OutCurCalParaB));
+  return ((unsigned short)(OutCurCalParaA*OP_CUR_CAL_PARA_A_COEFFICIENT*adcData + OutCurCalParaB));
   #else
   return COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_CURRENT(adcData);
   #endif
@@ -421,7 +492,7 @@ unsigned short ComputeDigital12bitsToOutputCurrent(unsigned short adcData)
 unsigned short ComputeDigital12bitsToOutputVoltageSample(unsigned short adcData)
 {
   #ifdef USE_EEPROM
-    return ((unsigned short)(OutVolSampleCalParaA*adcData * VDD_APPLI / RANGE_12BITS+OutVolSampleCalParaB));
+    return ((unsigned short)(OutVolSampleCalParaA*OP_VOL_SAMPLE_PARA_A_COEFFICIENT*adcData + OutVolSampleCalParaB));
   #else
     return COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_VOLTAGE_SAMPLE(adcData);
   #endif  
@@ -429,9 +500,9 @@ unsigned short ComputeDigital12bitsToOutputVoltageSample(unsigned short adcData)
 unsigned short ComputeDigital12BitsToTemperature(unsigned short adcData)
 {
   #ifdef USE_EEPROM
-    return (TemCalParaA*(adcData*VDD_APPLI/RANGE_12BITS)+TemCalParaB);    
+    return ((-TemCalParaA)*TEM_CAL_PARA_A_COEFFICIENT*adcData + TemCalParaB);    
   #else
-    return (-1786*(adcData*VDD_APPLI/RANGE_12BITS)+1821);
+    return ((-TemCalParaA)*TEM_CAL_PARA_A_COEFFICIENT*adcData + TemCalParaB); 
   #endif
 }
 void ADC_ExInit(ADC_HandleTypeDef* hadc)
@@ -473,6 +544,10 @@ unsigned short GetOutputVoltage(void)
   return ComputeDigital12bitsToOutputVoltageSample(AdcAverage[OP_VOL_SAMPLING_INDEX]);
 }
 //DAC
+unsigned short OpVolCalibration(unsigned short originalValue)
+{
+  return ((-OutVolCalParaA)*OP_VOL_CAL_PARA_A_COEFFICIENT*originalValue + OutVolCalParaB)<0?0:((-OutVolCalParaA)*OP_VOL_CAL_PARA_A_COEFFICIENT*originalValue + OutVolCalParaB);
+}
 unsigned short OutputVoltageToDigital12Bits(unsigned short targetVoltage)
 {
 	float tempValue=0.0f;
@@ -484,7 +559,7 @@ unsigned short OutputVoltageToDigital12Bits(unsigned short targetVoltage)
 	{
 		targetVoltage=MIN_OUTPUT_V;
 	}
-  tempValue=((targetVoltage*(-0.01146)+5.305)*RANGE_12BITS/VDD_APPLI);
+  tempValue=OpVolCalibration(targetVoltage);//((targetVoltage*(-0.01146)+5.305)*RANGE_12BITS/VDD_APPLI);
 	if(tempValue>RANGE_12BITS)
 	{
 		return RANGE_12BITS;
@@ -495,10 +570,7 @@ unsigned short OutputVoltageToDigital12Bits(unsigned short targetVoltage)
 	}
 	return tempValue;
 }
-unsigned short OpVolCalibration(unsigned short originalValue)
-{
-  return (originalValue*OutVolCalParaA/OP_VOL_PARA_KA+OutVolCalParaB/OP_VOL_PARA_KB)<0?0:(originalValue*OutVolCalParaA/OP_VOL_PARA_KA+OutVolCalParaB/OP_VOL_PARA_KB);
-}
+
 //CAN
 char ReceivedCanCommendFlag=0;
 
