@@ -107,7 +107,7 @@ int main(void)
   CAN_ExInit(&hcan1);
   MX_DAC_Init();
   #ifdef USE_EEPROM
-    //PowerOnCounterInc();
+    PowerOnCounterInc();
 	  ReadCriticalDataFromEeprom(&hi2c1);
   #endif
   /* Infinite loop */
@@ -153,15 +153,15 @@ int main(void)
           //Error_Handler();
         }
       }
-      #ifdef USE_EEPROM
-        static uint32_t preErrorCode=0;
-        //如果错误状态未发生改变，则不记录，如果发生改变则记录错误状态及程序运行时间
-        if(preErrorCode!=hcan1.pTxMsg->Data[4])
-        {
-          NewErrorInforSave(hcan1.pTxMsg->Data[4],GetProgramRunMinutes());
-          preErrorCode=hcan1.pTxMsg->Data[4];
-        }
-      #endif
+//      #ifdef USE_EEPROM
+//        static uint32_t preErrorCode=0;
+//        //如果错误状态未发生改变，则不记录，如果发生改变则记录错误状态及程序运行时间
+//        if(preErrorCode!=hcan1.pTxMsg->Data[4])
+//        {
+//          NewErrorInforSave(hcan1.pTxMsg->Data[4],GetProgramRunMinutes());
+//          preErrorCode=hcan1.pTxMsg->Data[4];
+//        }
+//      #endif
       
     }
     else 
@@ -208,7 +208,7 @@ int main(void)
     else
     {
       //DAC正常输出
-      if((GetDeviceId()==ValidRxMessage.Data[1])&&(POWER_ON_COMMAND==ValidRxMessage.Data[0]))   //？？？？？需不需要添加故障标志位判断，有故障时不输出
+      if(((BROADCAST_ID==ValidRxMessage.Data[1])||(GetDeviceId()==ValidRxMessage.Data[1]))&&(POWER_ON_COMMAND==ValidRxMessage.Data[0]))   //？？？？？需不需要添加故障标志位判断，有故障时不输出
       {
         /*##-3- Set DAC Channel1 DHR register ######################################*/
 				if (HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, OutputVoltageToDigital12Bits((ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[3])) != HAL_OK)

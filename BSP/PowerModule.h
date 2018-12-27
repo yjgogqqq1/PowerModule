@@ -102,6 +102,7 @@ typedef struct
 
 extern char ReceivedCanCommendFlag;
 extern __IO unsigned short AdcAverage[4];
+extern __IO unsigned short AdcSampleValue[4];
 extern unsigned short TargetOutputVoltage;
 extern unsigned short CurInputVoltage;
 extern unsigned short CurOutputVoltage;

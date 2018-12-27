@@ -45,6 +45,7 @@ short OutVolCalParaA          =1877;
 short OutVolCalParaB          =8689;
 
 __IO unsigned short AdcAverage[4];
+__IO unsigned short AdcSampleValue[4];
 #define OP_CUR_SAMPLING_INDEX       (0)
 #define IP_VOL_SAMPLING_INDEX       (1)
 #define TEMPERATURE_SAMPLING_INDEX  (2)
@@ -338,59 +339,60 @@ void ReadCriticalDataFromEeprom(I2C_HandleTypeDef *hi2c)
   unsigned int tU32=1;
   unsigned short t16=0;
   pHi2c=hi2c;
+	
   //读取本地ID
   if((EepromRead(hi2c,LocalID_Addr,(unsigned char *)&tU32,sizeof(tU32))== HAL_OK)&&((0!=~tU32)))
   {
       LocalId=tU32;
   }
-  
+	
   //读取输入电压采集参数
-  if ((EepromRead(hi2c,InVolCalParaA_Addr,(unsigned char *)&t16,sizeof(t16))== HAL_OK)&&(0!=~t16))
+  if ((EepromRead(hi2c,InVolCalParaA_Addr,(unsigned char *)&t16,sizeof(t16))== HAL_OK)&&(0xFFFF!=t16))
   {
     InVolCalParaA=t16;
   }
-  if ((EepromRead(hi2c,InVolCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0!=~t16))
+  if ((EepromRead(hi2c,InVolCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=t16))
   {
     InVolCalParaB=t16;
   }
 
   //读取输出电压采集参数
-  if ((EepromRead(hi2c,OutVolSampleCalParaA_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0!=~t16))
+  if ((EepromRead(hi2c,OutVolSampleCalParaA_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=t16))
   {
 		OutVolSampleCalParaA=t16;
   }
-  if ((EepromRead(hi2c,OutVolSampleCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0!=~t16))
+  if ((EepromRead(hi2c,OutVolSampleCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=t16))
   {
     OutVolSampleCalParaB=t16;
   }
   
   //读取输出电流采集参数
-  if (EepromRead(hi2c,OutCurCalParaA_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
+  if ((EepromRead(hi2c,OutCurCalParaA_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=t16))
   {
 		OutCurCalParaA=t16;
   }
 
-  if (EepromRead(hi2c,OutCurCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
+  if ((EepromRead(hi2c,OutCurCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=t16))
   {
 		OutCurCalParaB=t16;
   }
   
   //读取温度采集参数
-  if (EepromRead(hi2c,TemCalParaA_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
+  if ((EepromRead(hi2c,TemCalParaA_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=t16))
   {
 		TemCalParaA=t16;
   }
-  if (EepromRead(hi2c,TemCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
+  if ((EepromRead(hi2c,TemCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=t16))
   {
 		TemCalParaB=t16;
   }
   
   //读取输出电压调节参数
-  if (EepromRead(hi2c,OutVolCalParaA_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
+  if ((EepromRead(hi2c,OutVolCalParaA_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=t16))
   {
 		OutVolCalParaA=t16;
   }
-  if (EepromRead(hi2c,OutVolCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK&&(0!=~t16))
+  if ((EepromRead(hi2c,OutVolCalParaB_Addr,(unsigned char *)&t16,sizeof(t16)) == HAL_OK)&&(0xFFFF!=t16))
   {
     OutVolCalParaB=t16;
   }
@@ -472,18 +474,71 @@ char  GetPowerStatus(void)
 
 #define COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_VOLTAGE_SAMPLE(ADC_DATA)                        \
  ((unsigned short)(OutVolSampleCalParaA*OP_VOL_SAMPLE_PARA_A_COEFFICIENT*(ADC_DATA)+OutVolSampleCalParaB))// ((unsigned short)( (ADC_DATA) * VDD_APPLI / RANGE_12BITS*46.8f/1.8f*10.0f))
-unsigned short ComputeDigital12BitsToInputVoltage(unsigned short adcData)
+unsigned int testValue=0;
+ unsigned short ComputeDigital12BitsToInputVoltage(unsigned short adcData)
 {
-  #ifdef USE_EEPROM
-  return (((unsigned short)(InVolCalParaA*IP_VOL_CAL_PARA_A_COEFFICIENT*adcData + InVolCalParaB))<600)?0:((unsigned short)(InVolCalParaA*IP_VOL_CAL_PARA_A_COEFFICIENT*adcData + InVolCalParaB));
+	static unsigned int tVal[50]={0};
+	unsigned int sum=0;
+	
+	static unsigned int tIpValue[50]={0};
+	for(int i=0;i<((sizeof(tIpValue)/sizeof(unsigned int))-1);i++)
+	{
+		tIpValue[i]=tIpValue[i+1];
+	}
+	tIpValue[49]=adcData;
+	
+	for(int i=0;i<(sizeof(tIpValue)/sizeof(unsigned int));i++)
+	{
+		sum +=tIpValue[i];
+	}
+	AdcAverage[IP_VOL_SAMPLING_INDEX]=sum/(sizeof(tIpValue)/sizeof(unsigned int));
+	sum=0;
+	
+	for(int i=0;i<((sizeof(tVal)/sizeof(unsigned int))-1);i++)
+	{
+		tVal[i]=tVal[i+1];
+	}
+	tVal[49]=(((unsigned short)(InVolCalParaA*IP_VOL_CAL_PARA_A_COEFFICIENT*AdcAverage[IP_VOL_SAMPLING_INDEX] + InVolCalParaB))<600)?0:((unsigned short)(InVolCalParaA*IP_VOL_CAL_PARA_A_COEFFICIENT*AdcAverage[IP_VOL_SAMPLING_INDEX] + InVolCalParaB));
+  for(int i=0;i<(sizeof(tVal)/sizeof(unsigned int));i++)
+	{
+		sum +=tVal[i];
+	}
+	#ifdef USE_EEPROM
+  return sum/(sizeof(tVal)/sizeof(unsigned int));
   #else
   return COMPUTATION_DIGITAL_12BITS_TO_INPUT_VOLTAGE(adcData);
   #endif
 }
 unsigned short ComputeDigital12bitsToOutputCurrent(unsigned short adcData)
 {
-  #ifdef USE_EEPROM
-  return ((unsigned short)(OutCurCalParaA*OP_CUR_CAL_PARA_A_COEFFICIENT*adcData + OutCurCalParaB));
+  static unsigned int tVal[50]={0};
+	unsigned int sum=0;
+	
+	static unsigned int tIpValue[50]={0};
+	for(int i=0;i<((sizeof(tIpValue)/sizeof(unsigned int))-1);i++)
+	{
+		tIpValue[i]=tIpValue[i+1];
+	}
+	tIpValue[49]=adcData;
+	
+	for(int i=0;i<(sizeof(tIpValue)/sizeof(unsigned int));i++)
+	{
+		sum +=tIpValue[i];
+	}
+	AdcAverage[OP_CUR_SAMPLING_INDEX]=sum/(sizeof(tIpValue)/sizeof(unsigned int));
+	sum=0;
+	
+	for(int i=0;i<((sizeof(tVal)/sizeof(unsigned int))-1);i++)
+	{
+		tVal[i]=tVal[i+1];
+	}
+	tVal[49]=((unsigned short)(OutCurCalParaA*OP_CUR_CAL_PARA_A_COEFFICIENT*AdcAverage[OP_CUR_SAMPLING_INDEX] + OutCurCalParaB));
+  for(int i=0;i<((sizeof(tVal)/sizeof(unsigned int)));i++)
+	{
+		sum +=tVal[i];
+	}
+	#ifdef USE_EEPROM
+  return sum/(sizeof(tVal)/sizeof(unsigned int));
   #else
   return COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_CURRENT(adcData);
   #endif
@@ -491,16 +546,69 @@ unsigned short ComputeDigital12bitsToOutputCurrent(unsigned short adcData)
 
 unsigned short ComputeDigital12bitsToOutputVoltageSample(unsigned short adcData)
 {
-  #ifdef USE_EEPROM
-    return ((unsigned short)(OutVolSampleCalParaA*OP_VOL_SAMPLE_PARA_A_COEFFICIENT*adcData + OutVolSampleCalParaB));
+  static unsigned int tVal[50]={0};
+	unsigned int sum=0;
+	
+	static unsigned int tIpValue[50]={0};
+	for(int i=0;i<((sizeof(tIpValue)/sizeof(unsigned int))-1);i++)
+	{
+		tIpValue[i]=tIpValue[i+1];
+	}
+	tIpValue[49]=adcData;
+	
+	for(int i=0;i<(sizeof(tIpValue)/sizeof(unsigned int));i++)
+	{
+		sum +=tIpValue[i];
+	}
+	AdcAverage[OP_VOL_SAMPLING_INDEX]=sum/(sizeof(tIpValue)/sizeof(unsigned int));
+	sum=0;
+	
+	
+	for(int i=0;i<((sizeof(tVal)/sizeof(unsigned int))-1);i++)
+	{
+		tVal[i]=tVal[i+1];
+	}
+	tVal[49]=((unsigned short)(OutVolSampleCalParaA*OP_VOL_SAMPLE_PARA_A_COEFFICIENT*AdcAverage[OP_VOL_SAMPLING_INDEX] + OutVolSampleCalParaB));
+  for(int i=0;i<((sizeof(tVal)/sizeof(unsigned int)));i++)
+	{
+		sum +=tVal[i];
+	}
+	#ifdef USE_EEPROM
+  return sum/(sizeof(tVal)/sizeof(unsigned int));
   #else
     return COMPUTATION_DIGITAL_12BITS_TO_OUTPUT_VOLTAGE_SAMPLE(adcData);
   #endif  
 }
 unsigned short ComputeDigital12BitsToTemperature(unsigned short adcData)
 {
-  #ifdef USE_EEPROM
-    return ((-TemCalParaA)*TEM_CAL_PARA_A_COEFFICIENT*adcData + TemCalParaB);    
+  static unsigned int tVal[50]={0};
+	unsigned int sum=0;
+	
+	static unsigned int tIpValue[50]={0};
+	for(int i=0;i<((sizeof(tIpValue)/sizeof(unsigned int))-1);i++)
+	{
+		tIpValue[i]=tIpValue[i+1];
+	}
+	tIpValue[49]=adcData;
+	
+	for(int i=0;i<(sizeof(tIpValue)/sizeof(unsigned int));i++)
+	{
+		sum +=tIpValue[i];
+	}
+	AdcAverage[TEMPERATURE_SAMPLING_INDEX]=sum/(sizeof(tIpValue)/sizeof(unsigned int));
+	sum=0;
+	
+	for(int i=0;i<((sizeof(tVal)/sizeof(unsigned int))-1);i++)
+	{
+		tVal[i]=tVal[i+1];
+	}
+	tVal[49]=((-TemCalParaA)*TEM_CAL_PARA_A_COEFFICIENT*AdcAverage[TEMPERATURE_SAMPLING_INDEX] + TemCalParaB);
+  for(int i=0;i<((sizeof(tVal)/sizeof(unsigned int)));i++)
+	{
+		sum +=tVal[i];
+	}
+	#ifdef USE_EEPROM
+  return sum/(sizeof(tVal)/sizeof(unsigned int));
   #else
     return ((-TemCalParaA)*TEM_CAL_PARA_A_COEFFICIENT*adcData + TemCalParaB); 
   #endif
@@ -518,7 +626,7 @@ void ADC_ExInit(ADC_HandleTypeDef* hadc)
   
   /* Start ADC conversion on regular group with transfer by DMA */
   if (HAL_ADC_Start_DMA(hadc,
-                        (unsigned int *)AdcAverage,
+                        (unsigned int *)AdcSampleValue,
                         4
                        ) != HAL_OK)
   {
@@ -528,20 +636,20 @@ void ADC_ExInit(ADC_HandleTypeDef* hadc)
 }
 unsigned short GetOutputCurrent(void)
 {
-  return ComputeDigital12bitsToOutputCurrent(AdcAverage[OP_CUR_SAMPLING_INDEX]);
+  return ComputeDigital12bitsToOutputCurrent(AdcSampleValue[OP_CUR_SAMPLING_INDEX]);
 }
 unsigned short GetInputVoltage(void)
 {
-  return ComputeDigital12BitsToInputVoltage(AdcAverage[IP_VOL_SAMPLING_INDEX]);
+  return ComputeDigital12BitsToInputVoltage(AdcSampleValue[IP_VOL_SAMPLING_INDEX]);
 }
 
 short GetTemperature(void)
 {
-  return ComputeDigital12BitsToTemperature(AdcAverage[TEMPERATURE_SAMPLING_INDEX]);
+  return ComputeDigital12BitsToTemperature(AdcSampleValue[TEMPERATURE_SAMPLING_INDEX]);
 }
 unsigned short GetOutputVoltage(void)
 {
-  return ComputeDigital12bitsToOutputVoltageSample(AdcAverage[OP_VOL_SAMPLING_INDEX]);
+  return ComputeDigital12bitsToOutputVoltageSample(AdcSampleValue[OP_VOL_SAMPLING_INDEX]);
 }
 //DAC
 unsigned short OpVolCalibration(unsigned short originalValue)
@@ -576,11 +684,11 @@ char ReceivedCanCommendFlag=0;
 
 unsigned int GetLocalCanId(void)
 {
-	return LOCAL_DEFAULT_ID;
+	return LocalId;
 }
 unsigned int GetDeviceId(void)
 {
-	return LOCAL_DEFAULT_ID;
+	return LocalId;
 }
 void CAN_ExInit(CAN_HandleTypeDef* hcan)
 {
@@ -608,7 +716,7 @@ void CAN_ExInit(CAN_HandleTypeDef* hcan)
   hcan->pTxMsg = &TxMessage;
   hcan->pRxMsg = &RxMessage;
   
-  hcan->pTxMsg->StdId=LOCAL_DEFAULT_ID;
+  hcan->pTxMsg->StdId=LocalId;
   hcan->pTxMsg->ExtId = 0x00;
   hcan->pTxMsg->RTR = CAN_RTR_DATA;
   hcan->pTxMsg->IDE = CAN_ID_STD;
@@ -661,7 +769,7 @@ void GetPowerModuleStatus(void)
   CurOutputCurrent=GetOutputCurrent();
   CurModuleTemperature=GetTemperature();
   PowerStatusFlag=GetPowerStatus();
-  SetDacOutputValue(OutputVoltageToDigital12Bits((ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[1]));
+  SetDacOutputValue(OutputVoltageToDigital12Bits((ValidRxMessage.Data[2]<<8)|ValidRxMessage.Data[3]));
   if(CurInputVoltage>=IN_OVER_V_PROTECT_MIN)
   {
     InputOverVoltageFlag=true;
