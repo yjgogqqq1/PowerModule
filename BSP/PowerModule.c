@@ -1,6 +1,7 @@
 #include "PowerModule.h"
 #include "string.h"
 
+void WriteBanFlashOperateFlag();
 
 ErrorInfor ErrorInforList[10];
 ErrorInfor *GetErrorInforListBaseAddr(void)
@@ -131,6 +132,9 @@ void DebugConmmandProcess(I2C_HandleTypeDef *hi2c,CAN_HandleTypeDef *pHcan)
     case 1:       //读取最近几次故障
 			  SetReadErrorInforEnableFlag(1);
       break;
+		case 2:
+			WriteBanFlashOperateFlag();
+			break;
     case 5:       //读取本机ID
         pHcan->pTxMsg->Data[0]=LocalId;
 				pHcan->pTxMsg->Data[1]=0x00;
@@ -680,6 +684,13 @@ unsigned short OutputVoltageToDigital12Bits(unsigned short targetVoltage)
 }
 
 //CAN
+/* Base address of the Flash sectors */
+#define ADDR_FLASH_PAGE_127   ((unsigned int)0x0801FC00) /* Base @ of Page 127, 1 Kbytes */
+
+#define FLASH_USER_START_ADDR   ADDR_FLASH_PAGE_127   /* Start @ of user Flash area */
+#define FLASH_USER_END_ADDR     ADDR_FLASH_PAGE_127 + FLASH_PAGE_SIZE   /* End @ of user Flash area */
+/* Private variables ---------------------------------------------------------*/
+unsigned int *pPowerOnCounter=(unsigned int *)ADDR_FLASH_PAGE_127;
 char ReceivedCanCommendFlag=0;
 
 unsigned int GetLocalCanId(void)
@@ -735,7 +746,7 @@ unsigned char GetReceivedDebugCommandFlag(){  return ReceivedDebugCommandFlag;}
 void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan)
 {
   if((CONFIG_COMMAND==hcan->pRxMsg->Data[0])
-    &&(false==GetBanFlashOperateFlag()))
+    &&(1!=*pPowerOnCounter))
   {
     SetReceivedDebugCommandFlag(true);
   }
@@ -832,13 +843,7 @@ void GetPowerModuleStatus(void)
 
 
 //FLASH
-/* Base address of the Flash sectors */
-#define ADDR_FLASH_PAGE_127   ((unsigned int)0x0801FC00) /* Base @ of Page 127, 1 Kbytes */
 
-#define FLASH_USER_START_ADDR   ADDR_FLASH_PAGE_127   /* Start @ of user Flash area */
-#define FLASH_USER_END_ADDR     ADDR_FLASH_PAGE_127 + FLASH_PAGE_SIZE   /* End @ of user Flash area */
-/* Private variables ---------------------------------------------------------*/
-unsigned int *pPowerOnCounter=(unsigned int *)ADDR_FLASH_PAGE_127;
 unsigned char BanFlashOperateFlag=false;
 unsigned char GetBanFlashOperateFlag(void)
 {
@@ -846,7 +851,29 @@ unsigned char GetBanFlashOperateFlag(void)
 }
 unsigned int PAGEError = 0;
 __IO unsigned int MemoryProgramStatus = 0;
+void WriteBanFlashOperateFlag()
+{
+	/*Variable used for Erase procedure*/
+	FLASH_EraseInitTypeDef EraseInitStruct;
 
+	EraseInitStruct.TypeErase   = FLASH_TYPEERASE_PAGES;
+	EraseInitStruct.PageAddress = FLASH_USER_START_ADDR;
+	EraseInitStruct.NbPages     = (FLASH_USER_END_ADDR - FLASH_USER_START_ADDR) / FLASH_PAGE_SIZE;
+
+	HAL_FLASH_Unlock();
+		
+	if (HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError) != HAL_OK)
+	{
+		_Error_Handler(__FILE__,__LINE__);
+	}
+	if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (unsigned int)pPowerOnCounter, 1) != HAL_OK)
+	{
+		/* Error occurred while writing data in Flash memory.
+			 User can add here some code to deal with this error */
+		_Error_Handler(__FILE__,__LINE__);
+	}
+	HAL_FLASH_Lock();
+}
 void PowerOnCounterInc(void)
 {
 	unsigned int powerOnCounter=*pPowerOnCounter;

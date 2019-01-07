@@ -107,7 +107,7 @@ int main(void)
   CAN_ExInit(&hcan1);
   MX_DAC_Init();
   #ifdef USE_EEPROM
-    PowerOnCounterInc();
+    //PowerOnCounterInc();
 	  ReadCriticalDataFromEeprom(&hi2c1);
   #endif
   /* Infinite loop */
