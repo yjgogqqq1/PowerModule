@@ -50,7 +50,10 @@
 I2C_HandleTypeDef hi2c1;
 //DMA_HandleTypeDef hdma_i2c1_rx;
 //DMA_HandleTypeDef hdma_i2c1_tx;
-
+I2C_HandleTypeDef* GetHi2c()
+{
+	return &hi2c1;
+}
 /* I2C1 init function */
 void MX_I2C1_Init(void)
 {

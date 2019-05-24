@@ -750,6 +750,37 @@ void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan)
   {
     SetReceivedDebugCommandFlag(true);
   }
+	else if(0x05==hcan->pRxMsg->Data[0])	//ÐÞ¸ÄID
+	{
+		LocalId=hcan->pRxMsg->Data[1];
+		if (EepromWrite(GetHi2c(),LocalID_Addr,(unsigned char *)&LocalId,sizeof(LocalId)) != HAL_OK)
+		{
+			/* Error occurred while writing data in Flash memory.
+				User can add here some code to deal with this error */
+		}
+		hcan->pTxMsg->Data[0]=0x07;
+		hcan->pTxMsg->Data[1]=LocalId;
+		hcan->pTxMsg->Data[2]=0x00;
+		hcan->pTxMsg->Data[3]=0x00;
+		hcan->pTxMsg->Data[4]=0x00;
+		hcan->pTxMsg->Data[5]=0x00;
+		hcan->pTxMsg->Data[6]=0x00;
+		/*##-- Start the Transmission process ###############################*/
+		HAL_CAN_Transmit(hcan, 10);
+        
+	}
+	else if(0x06==hcan->pRxMsg->Data[0])	//²éÑ¯ID
+	{
+		hcan->pTxMsg->Data[0]=0x07;
+		hcan->pTxMsg->Data[1]=LocalId;
+		hcan->pTxMsg->Data[2]=0x00;
+		hcan->pTxMsg->Data[3]=0x00;
+		hcan->pTxMsg->Data[4]=0x00;
+		hcan->pTxMsg->Data[5]=0x00;
+		hcan->pTxMsg->Data[6]=0x00;
+		/*##-- Start the Transmission process ###############################*/
+		HAL_CAN_Transmit(hcan, 10);
+	}
   else if((POWER_DEVICE==((hcan->pRxMsg->Data[0]>>4)&0x0F))
     &&((LocalId==hcan->pRxMsg->Data[1])
     ||(BROADCAST_ID==hcan->pRxMsg->Data[1])))
@@ -771,7 +802,11 @@ void CAN_ReciveDataHandler(CAN_HandleTypeDef *hcan)
 		Error_Handler();
 	}
 }
-
+//
+void SpecialIdCommend(CAN_HandleTypeDef *hcan)
+{
+	
+}
 //Power Module Status
 void GetPowerModuleStatus(void)
 {
