@@ -51,13 +51,30 @@ CAN_HandleTypeDef hcan1;
 /* CAN1 init function */
 void MX_CAN1_Init(void)
 {
-
-  hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 12;
+	//波特率：500K
+//  hcan1.Instance = CAN1;
+//  hcan1.Init.Prescaler = 12;
+//  hcan1.Init.Mode = CAN_MODE_NORMAL;
+//  hcan1.Init.SJW = CAN_SJW_1TQ;
+//  hcan1.Init.BS1 = CAN_BS1_2TQ;
+//  hcan1.Init.BS2 = CAN_BS2_3TQ;
+//  hcan1.Init.TTCM = DISABLE;
+//  hcan1.Init.ABOM = DISABLE;
+//  hcan1.Init.AWUM = DISABLE;
+//  hcan1.Init.NART = DISABLE;
+//  hcan1.Init.RFLM = DISABLE;
+//  hcan1.Init.TXFP = DISABLE;
+//  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+//  {
+//    _Error_Handler(__FILE__, __LINE__);
+//  }
+	//波特率：100K
+	hcan1.Instance = CAN1;
+  hcan1.Init.Prescaler = 24;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SJW = CAN_SJW_1TQ;
-  hcan1.Init.BS1 = CAN_BS1_2TQ;
-  hcan1.Init.BS2 = CAN_BS2_3TQ;
+  hcan1.Init.BS1 = CAN_BS1_7TQ;
+  hcan1.Init.BS2 = CAN_BS2_7TQ;
   hcan1.Init.TTCM = DISABLE;
   hcan1.Init.ABOM = DISABLE;
   hcan1.Init.AWUM = DISABLE;
@@ -68,7 +85,24 @@ void MX_CAN1_Init(void)
   {
     _Error_Handler(__FILE__, __LINE__);
   }
-
+	
+	//波特率：200K
+//	hcan1.Instance = CAN1;
+//  hcan1.Init.Prescaler = 12;
+//  hcan1.Init.Mode = CAN_MODE_NORMAL;
+//  hcan1.Init.SJW = CAN_SJW_1TQ;
+//  hcan1.Init.BS1 = CAN_BS1_7TQ;
+//  hcan1.Init.BS2 = CAN_BS2_7TQ;
+//  hcan1.Init.TTCM = DISABLE;
+//  hcan1.Init.ABOM = DISABLE;
+//  hcan1.Init.AWUM = DISABLE;
+//  hcan1.Init.NART = DISABLE;
+//  hcan1.Init.RFLM = DISABLE;
+//  hcan1.Init.TXFP = DISABLE;
+//  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+//  {
+//    _Error_Handler(__FILE__, __LINE__);
+//  }
 }
 
 void HAL_CAN_MspInit(CAN_HandleTypeDef* canHandle)
